@@ -1,19 +1,16 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { 
-  Shield, Calendar, MapPin, Clock, Users, Copy, CheckCircle, 
-  XCircle, Download, History, Eye, Trash2, Settings, 
-  UserPlus, Edit, Home, LogOut, Menu, X, Plus, AlertCircle, ChevronDown
-} from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
+import { useNavigate, useLocation, Routes, Route } from 'react-router-dom';
+import { AdminNav } from './AdminNav';
+// Lazy load views
+const DashboardView = lazy(() => import('./views/DashboardView'));
+const CreateEventView = lazy(() => import('./views/CreateEventView'));
+const PastEventsView = lazy(() => import('./views/PastEventsView'));
+const SettingsView = lazy(() => import('./views/SettingsView'));
 import { CONFIG } from '../config';
 import { generateEventCode } from '../utils';
 import { SettingsStorage, StaffStorage, EventsStorage, AttendanceStorage } from '../services/storageAdapter';
 
-// Sidebar navigation items
-const navItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: Home, adminOnly: false },
-  { id: 'create', label: 'Create Event', icon: Plus, adminOnly: false },
-  { id: 'active', label: 'Active Event', icon: Calendar, adminOnly: false },
-  { id: 'history', label: 'Event History', icon: History, adminOnly: false },
+// Main AdminDashboard component
   { id: 'staff', label: 'Staff Management', icon: Users, adminOnly: true },
   { id: 'settings', label: 'Settings', icon: Settings, adminOnly: true },
 ];
@@ -77,13 +74,29 @@ const Button = ({
   );
 };
 
+// Navigation component
+const NavItem = ({ icon: Icon, label, active, onClick }) => (
+  <button
+    onClick={onClick}
+    className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
+      active 
+        ? 'bg-indigo-50 text-indigo-700' 
+        : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+    }`}
+  >
+    <Icon className="w-5 h-5 mr-3" />
+    {label}
+  </button>
+);
+
 function AdminDashboard() {
-  // State for mobile sidebar
+  const navigate = useNavigate();
+  const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [currentUser, setCurrentUser] = useState(null); // { username, role: 'admin' | 'staff' }
   const [isLoading, setIsLoading] = useState(false); // Loading state for data operations
   const [activeEvent, setActiveEvent] = useState(null);
   const [eventForm, setEventForm] = useState({
@@ -672,6 +685,13 @@ function AdminDashboard() {
       setMobileMenuOpen(false);
     }
   }, [viewMode]);
+
+  // Handle logout
+  const handleLogout = useCallback(() => {
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+    navigate('/admin/login');
+  }, [navigate]);
 
   if (!isAuthenticated) {
     return (
