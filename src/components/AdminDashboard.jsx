@@ -173,47 +173,67 @@ function AdminDashboard() {
   const handleLogin = async (e, role = 'admin', username = '') => {
     e.preventDefault();
     
-    console.log('Login attempt:', { role, username, passwordLength: password.length });
+    console.log('Login attempt:', { role, username, passwordLength: password ? password.length : 0 });
     
     if (role === 'admin') {
       const savedPassword = await SettingsStorage.getAdminPassword();
+      const isMatch = password === savedPassword;
+      
       console.log('Admin check:', { 
         entered: password, 
         saved: savedPassword, 
-        match: password === savedPassword 
+        isMatch,
+        passwordLength: password ? password.length : 0,
+        savedPasswordLength: savedPassword ? savedPassword.length : 0
       });
       
-      if (password === savedPassword) {
+      if (isMatch) {
         setIsAuthenticated(true);
         setCurrentUser({ username: 'Admin', role: 'admin' });
         setError('');
-        setPassword(''); // Clear password after login
+        setPassword('');
       } else {
-        setError(`Invalid admin password. Expected: "${savedPassword.substring(0, 3)}...", Got: "${password.substring(0, 3)}..."`);
+        setError('Invalid admin password. Please try again.');
       }
     } else if (role === 'staff') {
-      // Check staff credentials using storage adapter
-      const staffList = await StaffStorage.getStaffUsers();
-      console.log('Staff check:', { username, staffList: staffList.length });
-      
-      const staff = staffList.find(s => s.username === username && s.password === password);
-      
-      if (staff) {
-        setIsAuthenticated(true);
-        setCurrentUser({ username: staff.username, role: 'staff' });
-        setError('');
-        setPassword(''); // Clear password after login
-        setStaffUsername(''); // Clear username after login
-      } else {
-        if (staffList.length === 0) {
-          setError('No staff users exist. Contact admin to create a staff account.');
-        } else if (!staffList.find(s => s.username === username)) {
-          setError(`Username "${username}" not found. Check spelling or contact admin.`);
+      try {
+        // Check staff credentials using storage adapter
+        const staffList = await StaffStorage.getStaffUsers();
+        console.log('Staff check:', { 
+          username, 
+          staffListCount: staffList.length,
+          staffList: staffList.map(s => ({ 
+            username: s.username, 
+            passwordLength: s.password ? s.password.length : 0,
+            passwordMatch: s.password === password
+          }))
+        });
+        
+        // Case-insensitive username comparison
+        const staff = staffList.find(s => 
+          s.username.toLowerCase() === username.toLowerCase() && 
+          s.password === password
+        );
+        
+        if (staff) {
+          setIsAuthenticated(true);
+          setCurrentUser({ username: staff.username, role: 'staff' });
+          setError('');
+          setPassword('');
+          setStaffUsername('');
         } else {
-          setError('Invalid password for this username.');
+          if (staffList.length === 0) {
+            setError('No staff accounts found. Please contact the administrator.');
+          } else if (!staffList.some(s => s.username.toLowerCase() === username.toLowerCase())) {
+            setError('Username not found. Please check your username or contact the administrator.');
+          } else {
+            setError('Incorrect password. Please try again.');
+          }
         }
+      } catch (error) {
+        console.error('Staff login error:', error);
+        setError('An error occurred during login. Please try again later.');
       }
-    }
   };
 
   const handleAddStaff = async (e) => {
