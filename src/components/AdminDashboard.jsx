@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
-import { useNavigate, useLocation, Routes, Route } from 'react-router-dom';
+import { useNavigate, Routes, Route } from 'react-router-dom';
 import { AdminNav } from './AdminNav';
 // Lazy load views
 const DashboardView = lazy(() => import('./views/DashboardView'));
@@ -91,21 +91,13 @@ const NavItem = ({ icon: Icon, label, active, onClick }) => (
 
 function AdminDashboard() {
   const navigate = useNavigate();
-  const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState({ username: 'Admin', email: 'admin@example.com' });
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false); // Loading state for data operations
-  const [activeEvent, setActiveEvent] = useState(null);
-  const [eventForm, setEventForm] = useState({
-    name: '',
-    date: '',
-    time: '',
-    duration: 60,
-  });
-  const [location, setLocation] = useState(null);
+  const [eventLocation, setEventLocation] = useState(null);
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [copied, setCopied] = useState(false);
@@ -429,33 +421,40 @@ function AdminDashboard() {
     }
   };
 
-  const getCurrentLocation = () => {
+  const getCurrentLocation = useCallback(async () => {
     setLoadingLocation(true);
-    if (!navigator.geolocation) {
-      setError('Geolocation is not supported by your browser');
-      setLoadingLocation(false);
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
+    setError('');
+    
+    try {
+      const position = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
         });
-        setLoadingLocation(false);
-        setError('');
-      },
-      (error) => {
-        setError('Unable to get location. Please enable location services.');
-        setLoadingLocation(false);
-      }
-    );
-  };
+      });
+      
+      const currentLocation = {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+        accuracy: position.coords.accuracy
+      };
+      
+      setEventLocation(currentLocation);
+      return currentLocation;
+    } catch (error) {
+      console.error('Error getting location:', error);
+      setError('Could not get your location. Please try again or enter coordinates manually.');
+      return null;
+    } finally {
+      setLoadingLocation(false);
+    }
+  }, []);
 
   const createEvent = async (e) => {
     e.preventDefault();
 
+    if (!eventLocation) {
     if (!location) {
       setError('Please get your current location first');
       return;
@@ -676,16 +675,6 @@ function AdminDashboard() {
     }
   }, [activeEvent]);
 
-  // Toggle mobile menu
-  const toggleMobileMenu = () => setMobileMenuOpen(!mobileMenuOpen);
-
-  // Close mobile menu when view changes
-  useEffect(() => {
-    if (mobileMenuOpen) {
-      setMobileMenuOpen(false);
-    }
-  }, [viewMode]);
-
   // Handle logout
   const handleLogout = useCallback(() => {
     setIsAuthenticated(false);
@@ -697,12 +686,14 @@ function AdminDashboard() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
-          <Card title="Admin Login">
-          <div className="flex items-center justify-center mb-6">
-            <div className="p-4 bg-indigo-100 rounded-full">
-              <Shield className="w-12 h-12 text-indigo-600" />
+          <div className="bg-white shadow-md rounded-lg p-8">
+            <div className="flex items-center justify-center mb-6">
+              <div className="p-4 bg-indigo-100 rounded-full">
+                <Suspense fallback={<div className="w-12 h-12 bg-gray-200 rounded-full"></div>}>
+                  <Shield className="w-12 h-12 text-indigo-600" />
+                </Suspense>
+              </div>
             </div>
-          </div>
           <h2 className="text-3xl font-bold text-center text-gray-900 mb-6">
             {loginMode === 'admin' ? 'Admin Login' : 'Staff Login'}
           </h2>
