@@ -975,8 +975,9 @@ function AdminDashboard() {
           )}
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   // Settings View
   if (viewMode === 'settings') {
