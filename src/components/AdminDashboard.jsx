@@ -851,51 +851,63 @@ function AdminDashboard() {
     </div>
   ));
 
-  // Navigation Bar Component - memoized
+  // Navigation Sidebar Component - memoized
   const NavigationBar = React.memo(() => (
-    <div className="flex gap-3 mb-6 bg-white rounded-xl shadow-md p-2">
-      <button
-        onClick={() => setViewMode('create')}
-        className={`flex-1 px-4 py-3 rounded-lg font-semibold transition-all ${
-          viewMode === 'create' || viewMode === 'active'
-            ? 'bg-indigo-500 text-white shadow-md'
-            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-        }`}
-      >
-        {activeEvent ? 'Active Event' : 'Create Event'}
-      </button>
-      <button
-        onClick={() => setViewMode('history')}
-        className={`flex-1 px-4 py-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
-          viewMode === 'history' || viewMode === 'view-past'
-            ? 'bg-indigo-500 text-white shadow-md'
-            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-        }`}
-      >
-        <History className="w-5 h-5" />
-        Past Events ({totalPastEvents})
-      </button>
-      <button
-        onClick={() => setViewMode('settings')}
-        className={`flex-1 px-4 py-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
-          viewMode === 'settings'
-            ? 'bg-indigo-500 text-white shadow-md'
-            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-        }`}
-      >
-        <Settings className="w-5 h-5" />
-        Settings
-      </button>
+    <div className="w-64 bg-white rounded-xl shadow-md p-4 mr-6 h-fit">
+      <div className="space-y-2">
+        <button
+          onClick={() => setViewMode('create')}
+          className={`w-full flex items-center px-4 py-3 rounded-lg font-semibold transition-all ${
+            viewMode === 'create' || viewMode === 'active'
+              ? 'bg-indigo-500 text-white shadow-md'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          <Calendar className="w-5 h-5 mr-3" />
+          {activeEvent ? 'Active Event' : 'Create Event'}
+        </button>
+        <button
+          onClick={() => setViewMode('history')}
+          className={`w-full flex items-center px-4 py-3 rounded-lg font-semibold transition-all ${
+            viewMode === 'history' || viewMode === 'view-past'
+              ? 'bg-indigo-500 text-white shadow-md'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          <History className="w-5 h-5 mr-3" />
+          <span className="flex-1 text-left">Past Events</span>
+          <span className={`px-2 py-0.5 text-xs rounded-full ${
+            viewMode === 'history' || viewMode === 'view-past'
+              ? 'bg-white/20 text-white'
+              : 'bg-gray-200 text-gray-600'
+          }`}>
+            {totalPastEvents}
+          </span>
+        </button>
+        <button
+          onClick={() => setViewMode('settings')}
+          className={`w-full flex items-center px-4 py-3 rounded-lg font-semibold transition-all ${
+            viewMode === 'settings'
+              ? 'bg-indigo-500 text-white shadow-md'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          }`}
+        >
+          <Settings className="w-5 h-5 mr-3" />
+          Settings
+        </button>
+      </div>
     </div>
   ));
 
   // Past Events History View
   if (viewMode === 'history') {
     return (
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <UserInfoBar />
-        <NavigationBar />
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="flex gap-6">
+          <NavigationBar />
+          <div className="flex-1">
+            <div className="bg-white rounded-2xl shadow-xl p-8">
           <h2 className="text-3xl font-bold text-gray-900 mb-6">Past Events</h2>
           
           {pastEvents.length === 0 ? (
@@ -969,10 +981,12 @@ function AdminDashboard() {
   // Settings View
   if (viewMode === 'settings') {
     return (
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <UserInfoBar />
-        <NavigationBar />
-        <div className="space-y-6">
+        <div className="flex gap-6">
+          <NavigationBar />
+          <div className="flex-1">
+            <div className="space-y-6">
           {/* Admin-Only: Password Change Section */}
           {isAdmin() && (
             <div className="bg-white rounded-2xl shadow-xl p-8">
@@ -1402,10 +1416,12 @@ Priya Sharma,1MS21CS002,priya.sharma@bmsit.in
   // View Past Event Detail
   if (viewMode === 'view-past' && selectedPastEvent) {
     return (
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <UserInfoBar />
-        <NavigationBar />
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="flex gap-6">
+          <NavigationBar />
+          <div className="flex-1">
+            <div className="bg-white rounded-2xl shadow-xl p-8">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-3xl font-bold text-gray-900">{selectedPastEvent.name}</h2>
             <button
@@ -1507,10 +1523,12 @@ Priya Sharma,1MS21CS002,priya.sharma@bmsit.in
 
   if (!activeEvent) {
     return (
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <UserInfoBar />
-        <NavigationBar />
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="flex gap-6">
+          <NavigationBar />
+          <div className="flex-1">
+            <div className="bg-white rounded-2xl shadow-xl p-8">
           <h2 className="text-3xl font-bold text-gray-900 mb-6">Create New Event</h2>
           
           <form onSubmit={createEvent} className="space-y-6">
@@ -1616,10 +1634,12 @@ Priya Sharma,1MS21CS002,priya.sharma@bmsit.in
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-4">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <UserInfoBar />
-        <NavigationBar />
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="flex gap-6">
+          <NavigationBar />
+          <div className="flex-1">
+            <div className="bg-white rounded-2xl shadow-xl p-8">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-3xl font-bold text-gray-900">Active Event</h2>
                 <button
@@ -1754,10 +1774,10 @@ Priya Sharma,1MS21CS002,priya.sharma@bmsit.in
                 )}
               </div>
             </div>
-
           </div>
         </div>
-      );
-    }
+      </div>
+    </div>
+  );
 
 export default React.memo(AdminDashboard);
