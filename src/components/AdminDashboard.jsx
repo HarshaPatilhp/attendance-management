@@ -93,32 +93,42 @@ function AdminDashboard() {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentUser, setCurrentUser] = useState({ username: 'Admin', email: 'admin@example.com' });
+  const [currentUser, setCurrentUser] = useState(null);
   const [password, setPassword] = useState('');
+  const [staffUsername, setStaffUsername] = useState('');
+  const [loginMode, setLoginMode] = useState('admin');
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false); // Loading state for data operations
+  const [viewMode, setViewMode] = useState('create');
+  const [activeEvent, setActiveEvent] = useState(null);
+  const [pastEvents, setPastEvents] = useState([]);
+  const [attendanceRecords, setAttendanceRecords] = useState([]);
+  const [totalPastEvents, setTotalPastEvents] = useState(0);
+  const [staffUsers, setStaffUsers] = useState([]);
+  const [newStaffForm, setNewStaffForm] = useState({ username: '', password: '' });
+  const [showAddStaff, setShowAddStaff] = useState(false);
+  const [eventForm, setEventForm] = useState({ name: '', date: '', time: '', duration: 60 });
   const [eventLocation, setEventLocation] = useState(null);
   const [loadingLocation, setLoadingLocation] = useState(false);
-  const [attendanceRecords, setAttendanceRecords] = useState([]);
-  const [copied, setCopied] = useState(false);
-  const [pastEvents, setPastEvents] = useState([]);
-  const [viewMode, setViewMode] = useState('create'); // 'create', 'active', 'history', 'view-past', 'settings'
-  const [selectedPastEvent, setSelectedPastEvent] = useState(null);
-  const [adminPassword, setAdminPassword] = useState(CONFIG.ADMIN_PASSWORD);
+  const [manualAttendanceForm, setManualAttendanceForm] = useState({ name: '', usn: '', email: '' });
   const [showManualAttendance, setShowManualAttendance] = useState(false);
-  const [manualAttendanceForm, setManualAttendanceForm] = useState({
-    name: '',
-    usn: '',
-    email: '',
-  });
-  const [staffUsers, setStaffUsers] = useState([]);
-  const [showAddStaff, setShowAddStaff] = useState(false);
-  const [newStaffForm, setNewStaffForm] = useState({
-    username: '',
-    password: '',
-  });
-  const [loginMode, setLoginMode] = useState('admin');
-  const [staffUsername, setStaffUsername] = useState('');
+  const [selectedPastEvent, setSelectedPastEvent] = useState(null);
+  const [copied, setCopied] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  // Toggle dark mode
+  const toggleDarkMode = () => {
+    setDarkMode(!darkMode);
+    localStorage.setItem('darkMode', (!darkMode).toString());
+  };
+
+  // Load dark mode preference
+  useEffect(() => {
+    const saved = localStorage.getItem('darkMode');
+    if (saved) {
+      setDarkMode(saved === 'true');
+    }
+  }, []);
 
   // Load data on mount - optimized with caching
   useEffect(() => {
@@ -704,117 +714,100 @@ function AdminDashboard() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className={`min-h-screen ${darkMode ? 'bg-slate-950' : 'bg-gradient-to-br from-indigo-50 via-white to-purple-50'} flex items-center justify-center p-4 transition-colors duration-300`}>
         <div className="w-full max-w-md">
-          <div className="bg-white shadow-md rounded-lg p-8">
-            <div className="flex items-center justify-center mb-6">
-              <div className="p-4 bg-indigo-100 rounded-full">
-                <Suspense fallback={<div className="w-12 h-12 bg-gray-200 rounded-full"></div>}>
-                  <Shield className="w-12 h-12 text-indigo-600" />
+          <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-8 shadow-2xl">
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-indigo-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Suspense fallback={<div className="w-8 h-8 bg-indigo-400 rounded"></div>}>
+                  <Shield className="w-8 h-8 text-indigo-400" />
                 </Suspense>
               </div>
+              <h1 className="text-2xl font-bold text-white mb-2">Admin Panel</h1>
+              <p className="text-slate-400">Sign in to manage attendance</p>
             </div>
-          <h2 className="text-3xl font-bold text-center text-gray-900 mb-6">
-            {loginMode === 'admin' ? 'Admin Login' : 'Staff Login'}
-          </h2>
-          
-          {/* Login Mode Toggle */}
-          <div className="flex gap-2 mb-6 bg-gray-100 p-1 rounded-lg">
-            <button
-              type="button"
-              onClick={() => {
-                setLoginMode('admin');
-                setError('');
-                setPassword('');
-                setStaffUsername('');
-              }}
-              className={`flex-1 py-2 rounded-md font-semibold transition-all ${
-                loginMode === 'admin'
-                  ? 'bg-white text-indigo-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <Shield className="w-4 h-4 inline mr-2" />
-              Admin
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setLoginMode('staff');
-                setError('');
-                setPassword('');
-                setStaffUsername('');
-              }}
-              className={`flex-1 py-2 rounded-md font-semibold transition-all ${
-                loginMode === 'staff'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              <Users className="w-4 h-4 inline mr-2" />
-              Staff
-            </button>
-          </div>
-          
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            handleLogin(e, loginMode, staffUsername);
-          }} className="space-y-4">
-            {loginMode === 'staff' && (
+
+            <div className="flex bg-slate-800/50 rounded-xl p-1 mb-6">
+              <button
+                onClick={() => setLoginMode('admin')}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
+                  loginMode === 'admin'
+                    ? 'bg-indigo-600 text-white shadow-lg'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Admin
+              </button>
+              <button
+                onClick={() => setLoginMode('staff')}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
+                  loginMode === 'staff'
+                    ? 'bg-indigo-600 text-white shadow-lg'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Staff
+              </button>
+            </div>
+
+            <form onSubmit={(e) => handleLogin(e, loginMode, staffUsername)} className="space-y-4">
+              {loginMode === 'staff' && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Username</label>
+                  <input
+                    type="text"
+                    value={staffUsername}
+                    onChange={(e) => setStaffUsername(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                    placeholder="Enter your username"
+                    required
+                  />
+                </div>
+              )}
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Username
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  {loginMode === 'admin' ? 'Admin Password' : 'Password'}
                 </label>
                 <input
-                  type="text"
-                  value={staffUsername}
-                  onChange={(e) => setStaffUsername(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter staff username"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                  placeholder="Enter password"
                   required
                 />
               </div>
-            )}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder={loginMode === 'admin' ? 'Enter admin password' : 'Enter staff password'}
-                required
-              />
+              {error && (
+                <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-xl text-red-400 text-sm">
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              >
+                {loading && (
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent mr-2"></div>
+                )}
+                Sign In as {loginMode === 'admin' ? 'Admin' : 'Staff'}
+              </button>
+            </form>
+
+            <div className="mt-6 text-center">
+              <button
+                onClick={toggleDarkMode}
+                className="p-2 rounded-xl bg-slate-800/50 hover:bg-slate-700/50 text-slate-400 hover:text-white transition-colors"
+              >
+                <Suspense fallback={<div className="w-5 h-5"></div>}>
+                  {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                </Suspense>
+              </button>
             </div>
-
-            {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
-                {error}
-              </div>
-            )}
-
-            <button
-              type="submit"
-              className={`w-full font-semibold py-3 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg ${
-                loginMode === 'admin'
-                  ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:from-indigo-600 hover:to-purple-700'
-                  : 'bg-gradient-to-r from-blue-500 to-cyan-600 text-white hover:from-blue-600 hover:to-cyan-700'
-              }`}
-            >
-              Login as {loginMode === 'admin' ? 'Admin' : 'Staff'}
-            </button>
-          </form>
-
-          {loginMode === 'staff' && (
-            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-900">
-                <strong>Note:</strong> Staff accounts are created by administrators. Contact your admin if you don't have credentials.
-              </p>
-            </div>
-          )}
+          </div>
         </div>
       </div>
     );
