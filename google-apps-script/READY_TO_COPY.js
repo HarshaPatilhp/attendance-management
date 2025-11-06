@@ -8,10 +8,10 @@
 // ============================================
 // CONFIGURATION - Replace with your Sheet ID
 // ============================================
-const SHEET_ID = 'PASTE_YOUR_SHEET_ID_HERE'; // ← REPLACE THIS WITH YOUR ACTUAL SHEET ID FROM URL
+const SHEET_ID = '1Ljg3w9ifMGAQ77jBL3MIwqui_KL7V2B2SPrzIPzeIe4'; // ← REPLACE THIS WITH YOUR ACTUAL SHEET ID FROM URL
 const SPREADSHEET = SpreadsheetApp.openById(SHEET_ID);
 
-// Sheet names
+// Sheet names  
 const SHEETS = {
   SETTINGS: 'Settings',
   STAFF: 'Staff',

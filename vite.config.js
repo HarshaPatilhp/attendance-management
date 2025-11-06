@@ -6,5 +6,26 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true
+  },
+  build: {
+    // Enable source maps for debugging in production
+    sourcemap: false,
+    // Optimize chunk splitting
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          ui: ['lucide-react']
+        }
+      }
+    },
+    // Enable minification
+    minify: 'esbuild',
+    // Target modern browsers for better performance
+    target: 'esnext'
+  },
+  // Optimize dependencies
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'lucide-react']
   }
 })

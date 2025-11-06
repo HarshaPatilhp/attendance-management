@@ -88,9 +88,12 @@ export const StaffStorage = {
   async addStaff(staff) {
     if (isGoogleSheetsEnabled()) {
       try {
+        console.log('Adding staff to Google Sheets:', staff);
         await StaffAPI.addStaff(staff);
+        console.log('Staff added to Google Sheets successfully');
       } catch (error) {
         console.error('Failed to add staff to Sheets:', error);
+        throw new Error(`Google Sheets error: ${error.message}`);
       }
     }
     
@@ -149,9 +152,12 @@ export const EventsStorage = {
   async saveActiveEvent(event) {
     if (isGoogleSheetsEnabled()) {
       try {
+        console.log('Saving event to Google Sheets:', event);
         await EventsAPI.createEvent(event);
+        console.log('Event saved to Google Sheets successfully');
       } catch (error) {
         console.error('Failed to save event to Sheets:', error);
+        throw new Error(`Google Sheets error: ${error.message}`);
       }
     }
     localStorage.setItem('activeEvent', JSON.stringify(event));

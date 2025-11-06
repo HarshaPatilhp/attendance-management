@@ -1,7 +1,53 @@
-import React, { useState } from 'react';
+import React, { useState, Component } from 'react';
 import AdminDashboard from './components/AdminDashboard';
 import StudentAttendance from './components/StudentAttendance';
-import { Shield, Users } from 'lucide-react';
+import { Shield, Users, AlertCircle } from 'lucide-react';
+
+// Error Boundary Component
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('App Error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-red-50 flex items-center justify-center p-4">
+          <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
+            <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Something went wrong</h2>
+            <p className="text-gray-600 mb-6">
+              The application encountered an error. Please refresh the page to try again.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="w-full bg-blue-500 text-white font-bold py-3 rounded-lg hover:bg-blue-600 transition-colors"
+            >
+              Refresh Page
+            </button>
+            <details className="mt-4 text-left">
+              <summary className="cursor-pointer text-sm text-gray-500">Technical Details</summary>
+              <pre className="mt-2 text-xs bg-gray-100 p-2 rounded overflow-auto">
+                {this.state.error?.toString()}
+              </pre>
+            </details>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 function App() {
   const [mode, setMode] = useState(null);
@@ -15,7 +61,7 @@ function App() {
               AIML Attendance System
             </h1>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Secure event attendance with anti-proxy verification and location tracking
+              Secure event attendance tracking
             </p>
           </div>
 
@@ -73,22 +119,38 @@ function App() {
             </ul>
           </div>
         </div>
+
+        {/* Footer */}
+        <div className="mt-16 pt-8 pb-8 border-t border-gray-200 bg-gray-50 rounded-xl flex items-center justify-center">
+          <p className="text-sm text-gray-600 font-medium">
+            Made with ❤️ by AIML Department
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-      <div className="container mx-auto px-4 py-8">
-        <button
-          onClick={() => setMode(null)}
-          className="mb-6 px-6 py-3 bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 font-semibold text-gray-700 hover:text-gray-900"
-        >
-          ← Back to Home
-        </button>
-        {mode === 'admin' ? <AdminDashboard /> : <StudentAttendance />}
+    <ErrorBoundary>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+        <div className="container mx-auto px-4 py-8">
+          <button
+            onClick={() => setMode(null)}
+            className="mb-6 px-6 py-3 bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 font-semibold text-gray-700 hover:text-gray-900"
+          >
+            ← Back to Home
+          </button>
+          {mode === 'admin' ? <AdminDashboard /> : <StudentAttendance />}
+        </div>
+
+        {/* Footer */}
+        <div className="mt-12 pt-8 pb-8 border-t border-gray-200 bg-gray-50 rounded-xl flex items-center justify-center">
+          <p className="text-sm text-gray-600 font-medium">
+            Made with ❤️ by AIML Department
+          </p>
+        </div>
       </div>
-    </div>
+    </ErrorBoundary>
   );
 }
 

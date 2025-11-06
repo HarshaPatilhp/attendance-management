@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { User, Mail, Hash, KeyRound, MapPin, Loader, CheckCircle, AlertCircle } from 'lucide-react';
 import { CONFIG } from '../config';
 import { calculateDistance, validateEmail } from '../utils';
@@ -15,6 +15,7 @@ function StudentAttendance() {
   const [status, setStatus] = useState(null);
   const [message, setMessage] = useState('');
   const [location, setLocation] = useState(null);
+  const [alreadyMarked, setAlreadyMarked] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -71,14 +72,61 @@ function StudentAttendance() {
         },
         {
           enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0,
+          timeout: 15000, // Increased timeout for mobile
+          maximumAge: 300000, // Cache location for 5 minutes
         }
       );
     });
   };
 
-  const simulateAttendanceSubmission = async (position) => {
+  const checkExistingAttendance = useCallback(async (usn, eventCode) => {
+    if (!usn || !eventCode || !isGoogleSheetsEnabled()) {
+      setAlreadyMarked(false);
+      return;
+    }
+
+    try {
+      const existingRecords = await AttendanceAPI.getAttendance(eventCode.toUpperCase());
+      const hasMarked = existingRecords.some(
+        (record) => record.usn.toUpperCase() === usn.toUpperCase()
+      );
+      setAlreadyMarked(hasMarked);
+    } catch (error) {
+      console.error('Error checking existing attendance:', error);
+      setAlreadyMarked(false);
+    }
+  }, []);
+
+  // Debounced version of checkExistingAttendance
+  const debouncedCheckAttendance = useMemo(() => {
+    let timeoutId;
+    return (usn, eventCode) => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        checkExistingAttendance(usn, eventCode);
+      }, 500); // 500ms debounce
+    };
+  }, [checkExistingAttendance]);
+
+  // Optimized form data update
+  const updateFormData = useCallback((field, value) => {
+    setFormData(prev => {
+      const newData = { ...prev, [field]: value };
+      
+      // Trigger attendance check when USN or eventCode changes
+      if (field === 'usn' || field === 'eventCode') {
+        if (newData.usn && newData.eventCode) {
+          debouncedCheckAttendance(newData.usn, newData.eventCode);
+        } else {
+          setAlreadyMarked(false);
+        }
+      }
+      
+      return newData;
+    });
+  }, [debouncedCheckAttendance]);
+
+  const simulateAttendanceSubmission = useCallback(async (position) => {
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
     if (!isGoogleSheetsEnabled()) {
@@ -135,15 +183,15 @@ function StudentAttendance() {
     // Save attendance record using Google Sheets API
     await AttendanceAPI.addAttendance(attendanceRecord);
 
-    setStatus('success');
-    setMessage('Attendance marked successfully! You may close this page.');
+    setStatus('Success');
+    setMessage('🪄🤖 Presence confirmed — machine learning magic activated!.');
     
     setTimeout(() => {
       setFormData({ name: '', usn: '', email: '', eventCode: '' });
       setStatus(null);
       setMessage('');
     }, 5000);
-  };
+  }, [formData]);
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -178,7 +226,7 @@ function StudentAttendance() {
               <div>
                 <p className="text-sm font-medium text-green-900 mb-1">System Ready</p>
                 <p className="text-sm text-green-700">
-                  Attendance system is configured and ready. You can mark attendance from any device.
+                  Attendance system is configured and ready. You can mark attendance.
                 </p>
               </div>
             </div>
@@ -195,7 +243,7 @@ function StudentAttendance() {
               <input
                 type="text"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) => updateFormData('name', e.target.value)}
                 className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Enter your full name"
                 required
@@ -213,7 +261,7 @@ function StudentAttendance() {
               <input
                 type="text"
                 value={formData.usn}
-                onChange={(e) => setFormData({ ...formData, usn: e.target.value.toUpperCase() })}
+                onChange={(e) => updateFormData('usn', e.target.value.toUpperCase())}
                 className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase"
                 placeholder="e.g., 1MS21CS001"
                 required
@@ -231,7 +279,7 @@ function StudentAttendance() {
               <input
                 type="email"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e) => updateFormData('email', e.target.value)}
                 className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder={`your.name${CONFIG.COLLEGE_EMAIL_DOMAIN}`}
                 required
@@ -252,7 +300,7 @@ function StudentAttendance() {
               <input
                 type="text"
                 value={formData.eventCode}
-                onChange={(e) => setFormData({ ...formData, eventCode: e.target.value.toUpperCase() })}
+                onChange={(e) => updateFormData('eventCode', e.target.value.toUpperCase())}
                 className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase tracking-wider text-lg font-semibold"
                 placeholder="Enter 6-digit code"
                 maxLength={6}
@@ -281,13 +329,13 @@ function StudentAttendance() {
           {status && (
             <div
               className={`p-4 rounded-lg border ${
-                status === 'success'
+                status.toLowerCase() === 'success'
                   ? 'bg-green-50 border-green-200'
                   : 'bg-red-50 border-red-200'
               }`}
             >
               <div className="flex items-start">
-                {status === 'success' ? (
+                {status.toLowerCase() === 'success' ? (
                   <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 mr-3 flex-shrink-0" />
                 ) : (
                   <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
@@ -295,14 +343,14 @@ function StudentAttendance() {
                 <div>
                   <p
                     className={`text-sm font-medium ${
-                      status === 'success' ? 'text-green-900' : 'text-red-900'
+                      status.toLowerCase() === 'success' ? 'text-green-900' : 'text-red-900'
                     }`}
                   >
-                    {status === 'success' ? 'Success!' : 'Error'}
+                    {status.toLowerCase() === 'success' ? 'Success!' : 'Error'}
                   </p>
                   <p
                     className={`text-sm mt-1 ${
-                      status === 'success' ? 'text-green-700' : 'text-red-700'
+                      status.toLowerCase() === 'success' ? 'text-green-700' : 'text-red-700'
                     }`}
                   >
                     {message}
@@ -323,7 +371,7 @@ function StudentAttendance() {
                 Verifying...
               </>
             ) : (
-              'Submit Attendance'
+              'Mark my attendance.'
             )}
           </button>
         </form>
@@ -337,7 +385,7 @@ function StudentAttendance() {
             </li>
             <li className="flex items-start">
               <span className="text-blue-500 mr-2">•</span>
-              <span>You must be within {CONFIG.MAX_DISTANCE_METERS} meters of the event location</span>
+              <span>You must be within 50 meters of the event location</span>
             </li>
             <li className="flex items-start">
               <span className="text-blue-500 mr-2">•</span>
@@ -349,9 +397,16 @@ function StudentAttendance() {
             </li>
           </ul>
         </div>
+
+        {/* Footer */}
+        <div className="mt-12 pt-8 pb-8 border-t border-gray-200 bg-gray-50 rounded-b-2xl flex items-center justify-center">
+          <p className="text-sm text-gray-600 font-medium">
+            Made with ❤️ by AIML Department
+          </p>
+        </div>
       </div>
     </div>
   );
 }
 
-export default StudentAttendance;
+export default React.memo(StudentAttendance);

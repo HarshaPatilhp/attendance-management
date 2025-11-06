@@ -156,6 +156,18 @@ export const EventsAPI = {
   async createEvent(event) {
     await apiPost('createEvent', { event });
     await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Verify the event was created by checking if it exists
+    try {
+      const activeEvent = await this.getActiveEvent();
+      if (!activeEvent || activeEvent.code !== event.code) {
+        throw new Error('Event creation failed - event not found in Google Sheets');
+      }
+    } catch (verifyError) {
+      console.error('Event creation verification failed:', verifyError);
+      throw new Error(`Event creation verification failed: ${verifyError.message}`);
+    }
+    
     return event;
   },
   
@@ -165,6 +177,18 @@ export const EventsAPI = {
   async endEvent(eventCode) {
     await apiPost('endEvent', { eventCode });
     await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Verify the event was ended by checking if it's no longer active
+    try {
+      const activeEvent = await this.getActiveEvent();
+      if (activeEvent && activeEvent.code === eventCode) {
+        throw new Error('Event ending failed - event still active in Google Sheets');
+      }
+    } catch (verifyError) {
+      console.error('Event ending verification failed:', verifyError);
+      throw new Error(`Event ending verification failed: ${verifyError.message}`);
+    }
+    
     return true;
   },
   
@@ -236,13 +260,19 @@ export async function testConnection() {
 // HYBRID MODE - localStorage fallback
 // ============================================
 
+// Cache the Google Sheets enabled status
+let _isSheetsEnabled = null;
+
 /**
- * Check if Google Sheets is configured
+ * Check if Google Sheets is configured (cached)
  */
 export function isGoogleSheetsEnabled() {
-  return CONFIG.GOOGLE_SCRIPT_URL && 
-         CONFIG.GOOGLE_SCRIPT_URL !== '' && 
-         CONFIG.GOOGLE_SCRIPT_URL !== 'YOUR_GOOGLE_APPS_SCRIPT_URL';
+  if (_isSheetsEnabled === null) {
+    _isSheetsEnabled = CONFIG.GOOGLE_SCRIPT_URL && 
+                     CONFIG.GOOGLE_SCRIPT_URL !== '' && 
+                     CONFIG.GOOGLE_SCRIPT_URL !== 'YOUR_GOOGLE_APPS_SCRIPT_URL';
+  }
+  return _isSheetsEnabled;
 }
 
 /**

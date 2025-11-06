@@ -1,14 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import { Shield, Calendar, MapPin, Clock, Users, Copy, CheckCircle, XCircle, Download, History, Eye, Trash2, Settings, UserPlus, Edit } from 'lucide-react';
 import { CONFIG } from '../config';
 import { generateEventCode } from '../utils';
 import { SettingsStorage, StaffStorage, EventsStorage, AttendanceStorage } from '../services/storageAdapter';
 
 function AdminDashboard() {
+  // Loading component for lazy-loaded views
+  const ViewLoader = () => (
+    <div className="flex items-center justify-center py-16">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+    </div>
+  );
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [currentUser, setCurrentUser] = useState(null); // { username, role: 'admin' | 'staff' }
+  const [isLoading, setIsLoading] = useState(false); // Loading state for data operations
   const [activeEvent, setActiveEvent] = useState(null);
   const [eventForm, setEventForm] = useState({
     name: '',
@@ -39,25 +46,53 @@ function AdminDashboard() {
   const [loginMode, setLoginMode] = useState('admin');
   const [staffUsername, setStaffUsername] = useState('');
 
-  // Load data on mount
+  // Load data on mount - optimized with caching
   useEffect(() => {
-    if (isAuthenticated) {
-      // Load admin password
-      SettingsStorage.getAdminPassword().then(setAdminPassword);
-      
-      // Load staff users
-      StaffStorage.getStaffUsers().then(setStaffUsers);
-      
-      // Load events and active event
-      EventsStorage.getPastEvents().then(setPastEvents);
-      EventsStorage.getActiveEvent().then((event) => {
-        if (event) {
-          setActiveEvent(event);
-          setViewMode('active');
-          // Load attendance records for active event
-          AttendanceStorage.getAttendance(event.code).then(setAttendanceRecords);
+    if (isAuthenticated && !isLoading) {
+      const loadData = async () => {
+        setIsLoading(true);
+        try {
+          // Load admin password (only for admin)
+          if (isAdmin()) {
+            SettingsStorage.getAdminPassword().then(setAdminPassword).catch(console.error);
+          }
+
+          // Load staff users (only for admin)
+          if (isAdmin()) {
+            StaffStorage.getStaffUsers().then(setStaffUsers).catch(console.error);
+          }
+
+          // Load events and active event
+          const [pastEventsData, activeEventData] = await Promise.allSettled([
+            EventsStorage.getPastEvents(),
+            EventsStorage.getActiveEvent()
+          ]);
+
+          if (pastEventsData.status === 'fulfilled') {
+            setPastEvents(pastEventsData.value);
+          }
+
+          if (activeEventData.status === 'fulfilled' && activeEventData.value) {
+            setActiveEvent(activeEventData.value);
+            setViewMode('active');
+
+            // Load attendance records for active event (only when needed)
+            try {
+              const records = await AttendanceStorage.getAttendance(activeEventData.value.code);
+              setAttendanceRecords(records);
+            } catch (attendanceError) {
+              console.error('Failed to load attendance records:', attendanceError);
+            }
+          }
+        } catch (error) {
+          console.error('Failed to load initial data:', error);
+          setError('Failed to load data. Please refresh the page.');
+        } finally {
+          setIsLoading(false);
         }
-      });
+      };
+
+      loadData();
     }
   }, [isAuthenticated]);
 
@@ -121,6 +156,8 @@ function AdminDashboard() {
     }
 
     try {
+      console.log('Creating new staff user:', newStaffForm.username);
+
       // Check if username already exists
       const existingStaff = await StaffStorage.getStaffUsers();
       const usernameExists = existingStaff.find(s => s.username === newStaffForm.username);
@@ -137,16 +174,20 @@ function AdminDashboard() {
         createdAt: new Date()
       };
 
+      console.log('Adding staff to storage:', newStaff);
+
       await StaffStorage.addStaff(newStaff);
+      console.log('Staff added successfully');
+
       setStaffUsers([...staffUsers, newStaff]);
       setNewStaffForm({ username: '', password: '' });
       setShowAddStaff(false);
       setError('');
-      alert('Staff user created successfully!');
+      alert(`Staff user "${newStaff.username}" created successfully!`);
 
     } catch (error) {
       console.error('Failed to add staff:', error);
-      setError('Failed to create staff user. Please try again.');
+      setError(`Failed to create staff user: ${error.message}`);
     }
   };
 
@@ -162,8 +203,13 @@ function AdminDashboard() {
     }
   };
 
-  const isAdmin = () => currentUser?.role === 'admin';
-  const isStaff = () => currentUser?.role === 'staff';
+  const isAdmin = useCallback(() => currentUser?.role === 'admin', [currentUser?.role]);
+  const isStaff = useCallback(() => currentUser?.role === 'staff', [currentUser?.role]);
+
+  // Memoize computed values
+  const attendanceCount = useMemo(() => attendanceRecords.length, [attendanceRecords.length]);
+  const totalPastEvents = useMemo(() => pastEvents.length, [pastEvents.length]);
+  const activeEventCode = useMemo(() => activeEvent?.code, [activeEvent?.code]);
 
   const handlePasswordChange = async (newPassword) => {
     if (newPassword.length < 6) {
@@ -335,6 +381,8 @@ function AdminDashboard() {
 
     try {
       const code = generateEventCode();
+      console.log('Generated event code:', code);
+
       const event = {
         code,
         name: eventForm.name,
@@ -345,15 +393,23 @@ function AdminDashboard() {
         createdAt: new Date().toISOString(),
       };
 
+      console.log('Creating event:', event);
+
       await EventsStorage.saveActiveEvent(event);
+      console.log('Event saved successfully');
+
       setActiveEvent(event);
       setAttendanceRecords([]);
       setError('');
+
+      // Show success message with event code
+      alert(`Event "${event.name}" created successfully!\n\nEvent Code: ${event.code}\n\nStudents can now mark attendance using this code.`);
+
       setViewMode('active');
 
     } catch (error) {
       console.error('Failed to create event:', error);
-      setError('Failed to create event. Please try again.');
+      setError(`Failed to create event: ${error.message}`);
     }
   };
 
@@ -361,7 +417,7 @@ function AdminDashboard() {
     if (activeEvent) {
       try {
         // End the event using storage adapter
-        await EventsStorage.endEvent(activeEvent.code);
+        await EventsStorage.endEvent(activeEvent);
 
         // Update local state
         const completedEvent = {
@@ -447,25 +503,94 @@ function AdminDashboard() {
     a.click();
   };
 
-  // Auto-refresh attendance records from localStorage
+  // Auto-refresh attendance records - optimized polling
   useEffect(() => {
     if (activeEvent) {
-      const loadAttendanceRecords = () => {
-        const attendanceKey = `attendance_${activeEvent.code}`;
-        const recordsData = localStorage.getItem(attendanceKey);
-        if (recordsData) {
-          const records = JSON.parse(recordsData);
-          setAttendanceRecords(records);
+      let pollInterval;
+      let pollCount = 0;
+
+      const loadAttendanceRecords = async () => {
+        try {
+          const attendanceKey = `attendance_${activeEvent.code}`;
+          const recordsData = localStorage.getItem(attendanceKey);
+
+          if (recordsData) {
+            const records = JSON.parse(recordsData);
+            // Only update state if records actually changed
+            setAttendanceRecords(prevRecords => {
+              if (prevRecords.length !== records.length) {
+                return records;
+              }
+              // Check if any records are different
+              for (let i = 0; i < records.length; i++) {
+                if (JSON.stringify(prevRecords[i]) !== JSON.stringify(records[i])) {
+                  return records;
+                }
+              }
+              return prevRecords; // No change, don't trigger re-render
+            });
+          }
+        } catch (error) {
+          console.error('Error polling attendance:', error);
         }
       };
 
-      // Load immediately
-      loadAttendanceRecords();
+      const startPolling = () => {
+        // Clear any existing interval
+        if (pollInterval) clearInterval(pollInterval);
 
-      // Then poll every 3 seconds for updates
-      const interval = setInterval(loadAttendanceRecords, 3000);
+        // Initial load
+        loadAttendanceRecords();
 
-      return () => clearInterval(interval);
+        // Dynamic polling: more frequent initially, then slower
+        pollInterval = setInterval(() => {
+          pollCount++;
+
+          // Only poll if window is focused and visible
+          if (document.hidden || !document.hasFocus()) {
+            return;
+          }
+
+          loadAttendanceRecords();
+
+          // Adjust polling frequency based on time
+          // 0-10 polls: every 2 seconds (initial rapid updates)
+          // 11-30 polls: every 5 seconds
+          // 30+ polls: every 15 seconds (background updates)
+          if (pollCount > 30) {
+            clearInterval(pollInterval);
+            pollInterval = setInterval(loadAttendanceRecords, 15000);
+          } else if (pollCount > 10) {
+            clearInterval(pollInterval);
+            pollInterval = setInterval(loadAttendanceRecords, 5000);
+          }
+        }, 2000);
+      };
+
+      const stopPolling = () => {
+        if (pollInterval) {
+          clearInterval(pollInterval);
+        }
+      };
+
+      // Start polling
+      startPolling();
+
+      // Handle visibility changes
+      const handleVisibilityChange = () => {
+        if (document.hidden) {
+          stopPolling();
+        } else {
+          startPolling();
+        }
+      };
+
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      return () => {
+        stopPolling();
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      };
     }
   }, [activeEvent]);
 
@@ -584,8 +709,8 @@ function AdminDashboard() {
     );
   }
 
-  // User Info Bar
-  const UserInfoBar = () => (
+  // User Info Bar Component - memoized
+  const UserInfoBar = React.memo(() => (
     <div className="flex items-center justify-between mb-4 p-4 bg-white rounded-xl shadow-md">
       <div className="flex items-center gap-3">
         <div className={`p-2 rounded-full ${isAdmin() ? 'bg-indigo-100' : 'bg-blue-100'}`}>
@@ -613,10 +738,10 @@ function AdminDashboard() {
         Logout
       </button>
     </div>
-  );
+  ));
 
-  // Navigation Bar Component
-  const NavigationBar = () => (
+  // Navigation Bar Component - memoized
+  const NavigationBar = React.memo(() => (
     <div className="flex gap-3 mb-6 bg-white rounded-xl shadow-md p-2">
       <button
         onClick={() => setViewMode('create')}
@@ -637,7 +762,7 @@ function AdminDashboard() {
         }`}
       >
         <History className="w-5 h-5" />
-        Past Events ({pastEvents.length})
+        Past Events ({totalPastEvents})
       </button>
       <button
         onClick={() => setViewMode('settings')}
@@ -651,7 +776,7 @@ function AdminDashboard() {
         Settings
       </button>
     </div>
-  );
+  ));
 
   // Past Events History View
   if (viewMode === 'history') {
@@ -1379,146 +1504,155 @@ Priya Sharma,1MS21CS002,priya.sharma@bmsit.in
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <UserInfoBar />
-      <NavigationBar />
-      <div className="bg-white rounded-2xl shadow-xl p-8">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-3xl font-bold text-gray-900">Active Event</h2>
-          <button
-            onClick={endEvent}
-            className="px-6 py-2 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors"
-          >
-            End Event
-          </button>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-6 mb-8">
-          <div className="space-y-4">
-            <div className="flex items-center text-gray-700">
-              <Calendar className="w-5 h-5 mr-3 text-indigo-600" />
-              <div>
-                <p className="text-sm text-gray-500">Event Name</p>
-                <p className="font-semibold">{activeEvent.name}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center text-gray-700">
-              <Clock className="w-5 h-5 mr-3 text-indigo-600" />
-              <div>
-                <p className="text-sm text-gray-500">Date & Time</p>
-                <p className="font-semibold">{activeEvent.date} at {activeEvent.time}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center text-gray-700">
-              <MapPin className="w-5 h-5 mr-3 text-indigo-600" />
-              <div>
-                <p className="text-sm text-gray-500">Location</p>
-                <p className="font-semibold text-xs">
-                  {activeEvent.location.latitude.toFixed(4)}, {activeEvent.location.longitude.toFixed(4)}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl p-6 text-white">
-            <p className="text-sm opacity-90 mb-2">Event Code</p>
-            <div className="flex items-center justify-between">
-              <p className="text-4xl font-bold tracking-wider">{activeEvent.code}</p>
-              <button
-                onClick={copyEventCode}
-                className="p-3 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
-              >
-                {copied ? <CheckCircle className="w-6 h-6" /> : <Copy className="w-6 h-6" />}
-              </button>
-            </div>
-            <p className="text-sm opacity-90 mt-4">Share this code with students</p>
-          </div>
-        </div>
-
-        <div className="border-t pt-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-bold text-gray-900 flex items-center">
-              <Users className="w-6 h-6 mr-2 text-indigo-600" />
-              Attendance ({attendanceRecords.length})
-            </h3>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setViewMode('settings')}
-                className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-                title="Add attendance manually"
-              >
-                <UserPlus className="w-4 h-4 mr-2" />
-                Add Manual
-              </button>
-              {attendanceRecords.length > 0 && (
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-4">
+      <div className="max-w-4xl mx-auto">
+        <UserInfoBar />
+        <NavigationBar />
+        <div className="bg-white rounded-2xl shadow-xl p-8">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-3xl font-bold text-gray-900">Active Event</h2>
                 <button
-                  onClick={downloadAttendance}
-                  className="flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                  onClick={endEvent}
+                  className="px-6 py-2 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors"
                 >
-                  <Download className="w-4 h-4 mr-2" />
-                  Download CSV
+                  End Event
                 </button>
-              )}
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6 mb-8">
+                <div className="space-y-4">
+                  <div className="flex items-center text-gray-700">
+                    <Calendar className="w-5 h-5 mr-3 text-indigo-600" />
+                    <div>
+                      <p className="text-sm text-gray-500">Event Name</p>
+                      <p className="font-semibold">{activeEvent.name}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center text-gray-700">
+                    <Clock className="w-5 h-5 mr-3 text-indigo-600" />
+                    <div>
+                      <p className="text-sm text-gray-500">Date & Time</p>
+                      <p className="font-semibold">{activeEvent.date} at {activeEvent.time}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center text-gray-700">
+                    <MapPin className="w-5 h-5 mr-3 text-indigo-600" />
+                    <div>
+                      <p className="text-sm text-gray-500">Location</p>
+                      <p className="font-semibold text-xs">
+                        {activeEvent.location.latitude.toFixed(4)}, {activeEvent.location.longitude.toFixed(4)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl p-6 text-white">
+                  <p className="text-sm opacity-90 mb-2">Event Code</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-4xl font-bold tracking-wider">{activeEvent.code}</p>
+                    <button
+                      onClick={copyEventCode}
+                      className="p-3 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+                    >
+                      {copied ? <CheckCircle className="w-6 h-6" /> : <Copy className="w-6 h-6" />}
+                    </button>
+                  </div>
+                  <p className="text-sm opacity-90 mt-4">Share this code with students</p>
+                </div>
+              </div>
+
+              <div className="border-t pt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-bold text-gray-900 flex items-center">
+                    <Users className="w-6 h-6 mr-2 text-indigo-600" />
+                    Attendance ({attendanceCount})
+                  </h3>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setViewMode('settings')}
+                      className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                      title="Add attendance manually"
+                    >
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Add Manual
+                    </button>
+                    {attendanceRecords.length > 0 && (
+                      <button
+                        onClick={downloadAttendance}
+                        className="flex items-center px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Download CSV
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {attendanceRecords.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <Users className="w-16 h-16 mx-auto mb-4 opacity-20" />
+                    <p>No attendance records yet</p>
+                    <p className="text-sm mt-2">Students will appear here as they mark attendance</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Name</th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">USN</th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Email</th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Time</th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {attendanceRecords.map((record, index) => (
+                          <tr key={index} className={`hover:bg-gray-50 ${record.manualEntry ? 'bg-blue-50' : ''}`}>
+                            <td className="px-4 py-3 text-sm text-gray-900">
+                              {record.name}
+                              {record.manualEntry && (
+                                <span className="ml-2 text-xs text-blue-600 font-semibold" title="Manually Added">
+                                  <Edit className="w-3 h-3 inline" />
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-700">{record.usn}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{record.email}</td>
+                            <td className="px-4 py-3 text-sm text-gray-600">{record.timestamp}</td>
+                            <td className="px-4 py-3">
+                              {record.status === 'verified' ? (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  {record.manualEntry ? 'Manual' : 'Verified'}
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+                                  <XCircle className="w-3 h-3 mr-1" />
+                                  Failed
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="mt-12 pt-8 pb-8 border-t border-gray-200 bg-gray-50 rounded-b-2xl flex items-center justify-center">
+              <p className="text-sm text-gray-600 font-medium">
+                Made with ❤️ by AIML Department
+              </p>
             </div>
           </div>
-
-          {attendanceRecords.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <Users className="w-16 h-16 mx-auto mb-4 opacity-20" />
-              <p>No attendance records yet</p>
-              <p className="text-sm mt-2">Students will appear here as they mark attendance</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Name</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">USN</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Email</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Time</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {attendanceRecords.map((record, index) => (
-                    <tr key={index} className={`hover:bg-gray-50 ${record.manualEntry ? 'bg-blue-50' : ''}`}>
-                      <td className="px-4 py-3 text-sm text-gray-900">
-                        {record.name}
-                        {record.manualEntry && (
-                          <span className="ml-2 text-xs text-blue-600 font-semibold" title="Manually Added">
-                            <Edit className="w-3 h-3 inline" />
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700">{record.usn}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{record.email}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600">{record.timestamp}</td>
-                      <td className="px-4 py-3">
-                        {record.status === 'verified' ? (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                            <CheckCircle className="w-3 h-3 mr-1" />
-                            {record.manualEntry ? 'Manual' : 'Verified'}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
-                            <XCircle className="w-3 h-3 mr-1" />
-                            Failed
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
         </div>
-      </div>
-    </div>
-  );
-}
+      );
+    }
 
-export default AdminDashboard;
+export default React.memo(AdminDashboard);
