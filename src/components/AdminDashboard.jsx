@@ -813,80 +813,110 @@ function AdminDashboard() {
     );
   }
 
-  // User Info Bar Component - memoized
+  // Modern User Info Bar Component - memoized
   const UserInfoBar = React.memo(() => (
-    <div className="flex items-center justify-between mb-4 p-4 bg-white rounded-xl shadow-md">
-      <div className="flex items-center gap-3">
-        <div className={`p-2 rounded-full ${isAdmin() ? 'bg-indigo-100' : 'bg-blue-100'}`}>
-          {isAdmin() ? (
-            <Shield className="w-5 h-5 text-indigo-600" />
-          ) : (
-            <Users className="w-5 h-5 text-blue-600" />
-          )}
+    <div className="flex items-center justify-between mb-6 p-6 bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl">
+      <div className="flex items-center gap-4">
+        <div className={`p-3 rounded-2xl ${isAdmin() ? 'bg-indigo-500/20' : 'bg-blue-500/20'}`}>
+          <Suspense fallback={<div className="w-6 h-6 bg-slate-600 rounded"></div>}>
+            {isAdmin() ? (
+              <Shield className="w-6 h-6 text-indigo-400" />
+            ) : (
+              <Users className="w-6 h-6 text-blue-400" />
+            )}
+          </Suspense>
         </div>
         <div>
-          <p className="font-semibold text-gray-900">{currentUser?.username}</p>
-          <p className="text-sm text-gray-500">
+          <p className="text-lg font-bold text-white">{currentUser?.username}</p>
+          <p className="text-sm text-slate-400">
             {isAdmin() ? 'Administrator' : 'Staff Member'}
           </p>
         </div>
       </div>
-      <button
-        onClick={() => {
-          setIsAuthenticated(false);
-          setCurrentUser(null);
-          setPassword('');
-        }}
-        className="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
-      >
-        Logout
-      </button>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={toggleDarkMode}
+          className="p-2 rounded-xl bg-slate-800/50 hover:bg-slate-700/50 text-slate-400 hover:text-white transition-colors"
+        >
+          <Suspense fallback={<div className="w-5 h-5"></div>}>
+            {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          </Suspense>
+        </button>
+        <button
+          onClick={() => {
+            setIsAuthenticated(false);
+            setCurrentUser(null);
+            setPassword('');
+          }}
+          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-colors font-medium"
+        >
+          Logout
+        </button>
+      </div>
     </div>
   ));
 
-  // Navigation Sidebar Component - memoized
+  // Modern Navigation Sidebar Component - memoized
   const NavigationBar = React.memo(() => (
-    <div className="w-64 bg-white rounded-xl shadow-md p-4 mr-6 h-fit">
-      <div className="space-y-2">
+    <div className="w-80 bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6 mr-6 h-fit shadow-2xl">
+      <div className="space-y-3">
         <button
           onClick={() => setViewMode('create')}
-          className={`w-full flex items-center px-4 py-3 rounded-lg font-semibold transition-all ${
+          className={`w-full flex items-center px-4 py-4 rounded-xl font-semibold transition-all ${
             viewMode === 'create' || viewMode === 'active'
-              ? 'bg-indigo-500 text-white shadow-md'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ? 'bg-indigo-600 text-white shadow-lg'
+              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
           }`}
         >
-          <Calendar className="w-5 h-5 mr-3" />
-          {activeEvent ? 'Active Event' : 'Create Event'}
+          <div className={`p-2 rounded-lg mr-3 ${viewMode === 'create' || viewMode === 'active' ? 'bg-white/20' : 'bg-slate-700'}`}>
+            <Suspense fallback={<div className="w-5 h-5 bg-slate-600 rounded"></div>}>
+              <Calendar className="w-5 h-5" />
+            </Suspense>
+          </div>
+          <span>{activeEvent ? 'Active Event' : 'Create Event'}</span>
         </button>
+
         <button
           onClick={() => setViewMode('history')}
-          className={`w-full flex items-center px-4 py-3 rounded-lg font-semibold transition-all ${
+          className={`w-full flex items-center px-4 py-4 rounded-xl font-semibold transition-all ${
             viewMode === 'history' || viewMode === 'view-past'
-              ? 'bg-indigo-500 text-white shadow-md'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ? 'bg-indigo-600 text-white shadow-lg'
+              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
           }`}
         >
-          <History className="w-5 h-5 mr-3" />
-          <span className="flex-1 text-left">Past Events</span>
-          <span className={`px-2 py-0.5 text-xs rounded-full ${
-            viewMode === 'history' || viewMode === 'view-past'
-              ? 'bg-white/20 text-white'
-              : 'bg-gray-200 text-gray-600'
-          }`}>
-            {totalPastEvents}
-          </span>
+          <div className={`p-2 rounded-lg mr-3 ${viewMode === 'history' || viewMode === 'view-past' ? 'bg-white/20' : 'bg-slate-700'}`}>
+            <Suspense fallback={<div className="w-5 h-5 bg-slate-600 rounded"></div>}>
+              <History className="w-5 h-5" />
+            </Suspense>
+          </div>
+          <div className="flex-1 text-left">
+            <span>Past Events</span>
+            {totalPastEvents > 0 && (
+              <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
+                viewMode === 'history' || viewMode === 'view-past'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-slate-700 text-slate-300'
+              }`}>
+                {totalPastEvents}
+              </span>
+            )}
+          </div>
         </button>
+
         <button
           onClick={() => setViewMode('settings')}
-          className={`w-full flex items-center px-4 py-3 rounded-lg font-semibold transition-all ${
+          className={`w-full flex items-center px-4 py-4 rounded-xl font-semibold transition-all ${
             viewMode === 'settings'
-              ? 'bg-indigo-500 text-white shadow-md'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ? 'bg-indigo-600 text-white shadow-lg'
+              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
           }`}
         >
-          <Settings className="w-5 h-5 mr-3" />
-          Settings
+          <div className={`p-2 rounded-lg mr-3 ${viewMode === 'settings' ? 'bg-white/20' : 'bg-slate-700'}`}>
+            <Suspense fallback={<div className="w-5 h-5 bg-slate-600 rounded"></div>}>
+              <Settings className="w-5 h-5" />
+            </Suspense>
+          </div>
+          <span>Settings</span>
         </button>
       </div>
     </div>
