@@ -119,13 +119,6 @@ function App() {
             </ul>
           </div>
         </div>
-
-        {/* Footer */}
-        <div className="mt-16 pt-8 pb-8 border-t border-gray-200 bg-gray-50 rounded-xl flex items-center justify-center">
-          <p className="text-sm text-gray-600 font-medium">
-            Made with ❤️ by AIML Department
-          </p>
-        </div>
       </div>
     );
   }

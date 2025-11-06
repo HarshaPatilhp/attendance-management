@@ -219,7 +219,7 @@ function StudentAttendance() {
           </div>
         )}
 
-        {isGoogleSheetsEnabled() && (
+        {/* {isGoogleSheetsEnabled() && (
           <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
             <div className="flex items-start">
               <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 mr-3 flex-shrink-0" />
@@ -231,7 +231,7 @@ function StudentAttendance() {
               </div>
             </div>
           </div>
-        )}
+        )} */}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
@@ -396,13 +396,6 @@ function StudentAttendance() {
               <span>Make sure you're using your official college email address</span>
             </li>
           </ul>
-        </div>
-
-        {/* Footer */}
-        <div className="mt-12 pt-8 pb-8 border-t border-gray-200 bg-gray-50 rounded-b-2xl flex items-center justify-center">
-          <p className="text-sm text-gray-600 font-medium">
-            Made with ❤️ by AIML Department
-          </p>
         </div>
       </div>
     </div>

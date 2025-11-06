@@ -1644,12 +1644,6 @@ Priya Sharma,1MS21CS002,priya.sharma@bmsit.in
               </div>
             </div>
 
-            {/* Footer */}
-            <div className="mt-12 pt-8 pb-8 border-t border-gray-200 bg-gray-50 rounded-b-2xl flex items-center justify-center">
-              <p className="text-sm text-gray-600 font-medium">
-                Made with ❤️ by AIML Department
-              </p>
-            </div>
           </div>
         </div>
       );
