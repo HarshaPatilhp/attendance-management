@@ -1,16 +1,38 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { User, Mail, Hash, KeyRound, MapPin, Loader, CheckCircle, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
+// Lazy load icons
+const User = lazy(() => import('lucide-react').then(module => ({ default: module.User })));
+const Mail = lazy(() => import('lucide-react').then(module => ({ default: module.Mail })));
+const Hash = lazy(() => import('lucide-react').then(module => ({ default: module.Hash })));
+const KeyRound = lazy(() => import('lucide-react').then(module => ({ default: module.KeyRound })));
+const MapPin = lazy(() => import('lucide-react').then(module => ({ default: module.MapPin })));
+const LoaderIcon = lazy(() => import('lucide-react').then(module => ({ default: module.Loader })));
+const CheckCircle = lazy(() => import('lucide-react').then(module => ({ default: module.CheckCircle })));
+const AlertCircle = lazy(() => import('lucide-react').then(module => ({ default: module.AlertCircle })));
 import { CONFIG } from '../config';
 import { calculateDistance, validateEmail } from '../utils';
 import { EventsAPI, AttendanceAPI, isGoogleSheetsEnabled } from '../services/googleSheetsAPI';
 
+// Memoized form input component
+const FormInput = React.memo(({ icon: Icon, ...props }) => (
+  <div className="relative">
+    {Icon && <Icon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />}
+    <input
+      className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      {...props}
+    />
+  </div>
+));
+
 function StudentAttendance() {
-  const [formData, setFormData] = useState({
+  // Memoize initial form state
+  const initialFormState = useMemo(() => ({
     name: '',
     usn: '',
     email: '',
-    eventCode: '',
-  });
+    eventCode: ''
+  }), []);
+
+  const [formData, setFormData] = useState(initialFormState);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(null);
   const [message, setMessage] = useState('');
@@ -109,22 +131,13 @@ function StudentAttendance() {
   }, [checkExistingAttendance]);
 
   // Optimized form data update
+  // Debounced form update
   const updateFormData = useCallback((field, value) => {
-    setFormData(prev => {
-      const newData = { ...prev, [field]: value };
-      
-      // Trigger attendance check when USN or eventCode changes
-      if (field === 'usn' || field === 'eventCode') {
-        if (newData.usn && newData.eventCode) {
-          debouncedCheckAttendance(newData.usn, newData.eventCode);
-        } else {
-          setAlreadyMarked(false);
-        }
-      }
-      
-      return newData;
-    });
-  }, [debouncedCheckAttendance]);
+    setFormData(prev => ({
+      ...prev,
+      [field]: field === 'usn' || field === 'eventCode' ? value.toUpperCase() : value
+    }));
+  }, []);
 
   const simulateAttendanceSubmission = useCallback(async (position) => {
     await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -227,54 +240,46 @@ function StudentAttendance() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Full Name
                   </label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) => updateFormData('name', e.target.value)}
-                      className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Enter your full name"
-                      required
-                      disabled={loading}
-                    />
-                  </div>
+                  <FormInput
+                    icon={User}
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => updateFormData('name', e.target.value)}
+                    placeholder="Enter your full name"
+                    required
+                    disabled={loading}
+                  />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     USN (University Seat Number)
                   </label>
-                  <div className="relative">
-                    <Hash className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="text"
-                      value={formData.usn}
-                      onChange={(e) => updateFormData('usn', e.target.value.toUpperCase())}
-                      className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase"
-                      placeholder="e.g., 1MS21CS001"
-                      required
-                      disabled={loading}
-                    />
-                  </div>
+                  <FormInput
+                    icon={Hash}
+                    type="text"
+                    value={formData.usn}
+                    onChange={(e) => updateFormData('usn', e.target.value)}
+                    placeholder="e.g., 1MS21CS001"
+                    required
+                    disabled={loading}
+                    className="uppercase"
+                  />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     College Email
                   </label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => updateFormData('email', e.target.value)}
-                      className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder={`your.name${CONFIG.COLLEGE_EMAIL_DOMAIN}`}
-                      required
-                      disabled={loading}
-                    />
-                  </div>
+                  <FormInput
+                    icon={Mail}
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => updateFormData('email', e.target.value)}
+                    placeholder={`your.name${CONFIG.COLLEGE_EMAIL_DOMAIN}`}
+                    required
+                    disabled={loading}
+                  />
                   <p className="mt-1 text-sm text-gray-500">
                     Must be a valid {CONFIG.COLLEGE_EMAIL_DOMAIN} email
                   </p>
@@ -284,19 +289,17 @@ function StudentAttendance() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Event Code
                   </label>
-                  <div className="relative">
-                    <KeyRound className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="text"
-                      value={formData.eventCode}
-                      onChange={(e) => updateFormData('eventCode', e.target.value.toUpperCase())}
-                      className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase tracking-wider text-lg font-semibold"
-                      placeholder="Enter 6-digit code"
-                      maxLength={6}
-                      required
-                      disabled={loading}
-                    />
-                  </div>
+                  <FormInput
+                    icon={KeyRound}
+                    type="text"
+                    value={formData.eventCode}
+                    onChange={(e) => updateFormData('eventCode', e.target.value)}
+                    placeholder="Enter 6-digit code"
+                    maxLength={6}
+                    required
+                    disabled={loading}
+                    className="uppercase tracking-wider text-lg font-semibold"
+                  />
                   <p className="mt-1 text-sm text-gray-500">
                     Get the event code from your instructor
                   </p>

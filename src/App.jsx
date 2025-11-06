@@ -1,7 +1,19 @@
-import React, { useState, Component } from 'react';
-import AdminDashboard from './components/AdminDashboard';
-import StudentAttendance from './components/StudentAttendance';
+import React, { Suspense, lazy, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import { Shield, Users, AlertCircle } from 'lucide-react';
+
+// Lazy load components
+const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
+const StudentAttendance = lazy(() => import('./components/StudentAttendance'));
+
+// Loading component
+const Loader = () => (
+  <div className="min-h-screen flex items-center justify-center">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+  </div>
+);
 
 // Error Boundary Component
 class ErrorBoundary extends Component {
@@ -124,26 +136,32 @@ function App() {
   }
 
   return (
-    <ErrorBoundary>
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-        <div className="container mx-auto px-4 py-8">
-          <button
-            onClick={() => setMode(null)}
-            className="mb-6 px-6 py-3 bg-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 font-semibold text-gray-700 hover:text-gray-900"
-          >
-            ← Back to Home
-          </button>
-          {mode === 'admin' ? <AdminDashboard /> : <StudentAttendance />}
-        </div>
-
-        {/* Footer */}
-        <div className="mt-12 pt-8 pb-8 border-t border-gray-200 bg-gray-50 rounded-xl flex items-center justify-center">
-          <p className="text-sm text-gray-600 font-medium">
-            Made with ❤️ by AIML Department
-          </p>
-        </div>
+    <Router>
+      <div className="min-h-screen bg-gray-50">
+        <Suspense fallback={<Loader />}>
+          <Routes>
+            <Route path="/" element={<Navigate to="/student" replace />} />
+            <Route 
+              path="/admin/*" 
+              element={
+                <React.Suspense fallback={<Loader />}>
+                  <AdminDashboard />
+                </React.Suspense>
+              } 
+            />
+            <Route 
+              path="/student" 
+              element={
+                <React.Suspense fallback={<Loader />}>
+                  <StudentAttendance />
+                </React.Suspense>
+              } 
+            />
+          </Routes>
+        </Suspense>
+        <ToastContainer position="bottom-right" autoClose={3000} />
       </div>
-    </ErrorBoundary>
+    </Router>
   );
 }
 
