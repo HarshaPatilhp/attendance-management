@@ -139,12 +139,26 @@ function StudentAttendance() {
     }));
   }, []);
 
+  const getClientIP = async () => {
+    try {
+      const response = await fetch('https://api.ipify.org?format=json');
+      const data = await response.json();
+      return data.ip;
+    } catch (error) {
+      console.error('Could not get IP address:', error);
+      return ''; // Return empty string if we can't get the IP
+    }
+  };
+
   const simulateAttendanceSubmission = useCallback(async (position) => {
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
     if (!isGoogleSheetsEnabled()) {
       throw new Error('System is not configured for shared attendance. Please contact administrator.');
     }
+
+    // Get client IP address
+    const ipAddress = await getClientIP();
 
     // Verify event code using Google Sheets API
     const activeEvent = await EventsAPI.getActiveEvent();
@@ -153,7 +167,7 @@ function StudentAttendance() {
     }
 
     if (activeEvent.code !== formData.eventCode.toUpperCase()) {
-      throw new Error('Invalid event code. Please check and try again.');
+      throw new Error('Invalid event code. Please check the code and try again.');
     }
 
     // Check distance from event location
@@ -168,16 +182,6 @@ function StudentAttendance() {
       throw new Error('Unable to verify your location. Please make sure you are at the correct event location and try again. If the issue persists, contact your teacher or admin.');
     }
 
-    // Check for duplicate attendance using Google Sheets API
-    const existingRecords = await AttendanceAPI.getAttendance(activeEvent.code);
-    const alreadyMarked = existingRecords.find(
-      (record) => record.usn.toUpperCase() === formData.usn.toUpperCase()
-    );
-
-    if (alreadyMarked) {
-      throw new Error('You have already marked attendance for this event.');
-    }
-
     // Create attendance record
     const attendanceRecord = {
       eventCode: activeEvent.code,
@@ -190,11 +194,17 @@ function StudentAttendance() {
       distance: Math.round(distance),
       status: 'verified',
       manualEntry: false,
-      addedBy: 'Student'
+      addedBy: 'Student',
+      ipAddress: ipAddress
     };
 
     // Save attendance record using Google Sheets API
-    await AttendanceAPI.addAttendance(attendanceRecord);
+    const result = await AttendanceAPI.addAttendance(attendanceRecord);
+    
+    // If there was an error from the server (like duplicate IP), throw it
+    if (result && result.error) {
+      throw new Error(result.error);
+    }
 
     setStatus('Success');
     setMessage('🪄🤖 Presence confirmed — machine learning magic activated!.');

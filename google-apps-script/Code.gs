@@ -58,7 +58,7 @@ function initializeSheets() {
   // Create Attendance sheet
   if (!ss.getSheetByName(SHEETS.ATTENDANCE)) {
     const sheet = ss.insertSheet(SHEETS.ATTENDANCE);
-    sheet.appendRow(['EventCode', 'Name', 'USN', 'Email', 'Timestamp', 'Latitude', 'Longitude', 'Distance', 'Status', 'ManualEntry', 'AddedBy']);
+    sheet.appendRow(['EventCode', 'Name', 'USN', 'Email', 'Timestamp', 'Latitude', 'Longitude', 'Distance', 'Status', 'ManualEntry', 'AddedBy', 'IPAddress']);
   }
   
   return { success: true, message: 'Sheets initialized' };
@@ -408,12 +408,19 @@ function getAttendanceCount(eventCode) {
 
 function addAttendance(attendance) {
   const sheet = SPREADSHEET.getSheetByName(SHEETS.ATTENDANCE);
+  const ipAddress = attendance.ipAddress || '';
   
   // Check for duplicate USN in same event
   const data = sheet.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
+    // Check for duplicate USN in the same event
     if (data[i][0] === attendance.eventCode && data[i][2] === attendance.usn) {
-      return { success: false, error: 'Attendance already marked for this USN' };
+      return { success: false, error: 'You have already marked attendance for this event.' };
+    }
+    
+    // Check for duplicate IP address in the same event
+    if (ipAddress && data[i][0] === attendance.eventCode && data[i][11] === ipAddress) {
+      return { success: false, error: 'Attendance already marked from this device/network. Only one attendance per device is allowed.' };
     }
   }
   
@@ -429,7 +436,8 @@ function addAttendance(attendance) {
     attendance.distance || 0,
     attendance.status || 'verified',
     attendance.manualEntry || false,
-    attendance.addedBy || 'Student'
+    attendance.addedBy || 'Student',
+    ipAddress
   ]);
   
   return { success: true, message: 'Attendance added' };
