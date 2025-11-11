@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import { useNavigate, Routes, Route } from 'react-router-dom';
 import { AdminNav } from './AdminNav';
-import { LogOut } from 'lucide-react';
+import { LogOut, Shield, Users, Settings, Sun, Moon, Calendar, History, Eye, Download, Trash2, Clock, UserPlus, MapPin, CheckCircle, Copy, XCircle } from 'lucide-react';
 // Lazy load views
 const DashboardView = lazy(() => import('./views/DashboardView'));
 const CreateEventView = lazy(() => import('./views/CreateEventView'));
@@ -10,11 +10,6 @@ const SettingsView = lazy(() => import('./views/SettingsView'));
 import { CONFIG } from '../config';
 import { generateEventCode } from '../utils';
 import { SettingsStorage, StaffStorage, EventsStorage, AttendanceStorage } from '../services/storageAdapter';
-
-// Main AdminDashboard component
-  { id: 'staff', label: 'Staff Management', icon: Users, adminOnly: true },
-  { id: 'settings', label: 'Settings', icon: Settings, adminOnly: true },
-];
 
 // Loading component
 const ViewLoader = () => (
@@ -110,7 +105,6 @@ function AdminDashboard() {
   const [activeEvent, setActiveEvent] = useState(null);
   const [pastEvents, setPastEvents] = useState([]);
   const [attendanceRecords, setAttendanceRecords] = useState([]);
-  const [totalPastEvents, setTotalPastEvents] = useState(0);
   const [staffUsers, setStaffUsers] = useState([]);
   const [newStaffForm, setNewStaffForm] = useState({ username: '', password: '' });
   const [showAddStaff, setShowAddStaff] = useState(false);
@@ -123,6 +117,8 @@ function AdminDashboard() {
   const [copied, setCopied] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
 
   // Handle login
   const handleLogin = async (e, role = 'admin', username = '') => {
@@ -247,72 +243,6 @@ function AdminDashboard() {
       loadData();
     }
   }, [isAuthenticated]);
-
-  const handleLogin = async (e, role = 'admin', username = '') => {
-    e.preventDefault();
-    
-    console.log('Login attempt:', { role, username, passwordLength: password ? password.length : 0 });
-    
-    if (role === 'admin') {
-      const savedPassword = await SettingsStorage.getAdminPassword();
-      const isMatch = password === savedPassword;
-      
-      console.log('Admin check:', { 
-        entered: password, 
-        saved: savedPassword, 
-        isMatch,
-        passwordLength: password ? password.length : 0,
-        savedPasswordLength: savedPassword ? savedPassword.length : 0
-      });
-      
-      if (isMatch) {
-        setIsAuthenticated(true);
-        setCurrentUser({ username: 'Admin', role: 'admin' });
-        setError('');
-        setPassword('');
-      } else {
-        setError('Invalid admin password. Please try again.');
-      }
-    } else if (role === 'staff') {
-      try {
-        // Check staff credentials using storage adapter
-        const staffList = await StaffStorage.getStaffUsers();
-        console.log('Staff check:', { 
-          username, 
-          staffListCount: staffList.length,
-          staffList: staffList.map(s => ({ 
-            username: s.username, 
-            passwordLength: s.password ? s.password.length : 0,
-            passwordMatch: s.password === password
-          }))
-        });
-        
-        // Case-insensitive username comparison
-        const staff = staffList.find(s => 
-          s.username.toLowerCase() === username.toLowerCase() && 
-          s.password === password
-        );
-        
-        if (staff) {
-          setIsAuthenticated(true);
-          setCurrentUser({ username: staff.username, role: 'staff' });
-          setError('');
-          setPassword('');
-          setStaffUsername('');
-        } else {
-          if (staffList.length === 0) {
-            setError('No staff accounts found. Please contact the administrator.');
-          } else if (!staffList.some(s => s.username.toLowerCase() === username.toLowerCase())) {
-            setError('Username not found. Please check your username or contact the administrator.');
-          } else {
-            setError('Incorrect password. Please try again.');
-          }
-        }
-      } catch (error) {
-        console.error('Staff login error:', error);
-        setError('An error occurred during login. Please try again later.');
-      }
-  };
 
   const handleAddStaff = async (e) => {
     e.preventDefault();
@@ -553,7 +483,6 @@ function AdminDashboard() {
     e.preventDefault();
 
     if (!eventLocation) {
-    if (!location) {
       setError('Please get your current location first');
       return;
     }
@@ -568,7 +497,7 @@ function AdminDashboard() {
         date: eventForm.date,
         time: eventForm.time,
         duration: eventForm.duration,
-        location,
+        location: eventLocation,
         createdAt: new Date().toISOString(),
       };
 
@@ -621,7 +550,7 @@ function AdminDashboard() {
 
     setActiveEvent(null);
     setEventForm({ name: '', date: '', time: '', duration: 60 });
-    setLocation(null);
+    setEventLocation(null);
     setAttendanceRecords([]);
     setViewMode('create');
     setError('');
@@ -772,13 +701,6 @@ function AdminDashboard() {
       };
     }
   }, [activeEvent]);
-
-  // Handle logout
-  const handleLogout = useCallback(() => {
-    setIsAuthenticated(false);
-    setCurrentUser(null);
-    navigate('/admin/login');
-  }, [navigate]);
 
   if (!isAuthenticated) {
     return (
