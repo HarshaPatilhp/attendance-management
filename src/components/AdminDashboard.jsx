@@ -989,10 +989,11 @@ function AdminDashboard() {
             </div>
           )}
         </div>
+          </div>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
   // Settings View
   if (viewMode === 'settings') {
@@ -1424,6 +1425,8 @@ Priya Sharma,1MS21CS002,priya.sharma@bmsit.in
               </div>
             )}
           </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -1531,6 +1534,8 @@ Priya Sharma,1MS21CS002,priya.sharma@bmsit.in
                 </table>
               </div>
             )}
+          </div>
+        </div>
           </div>
         </div>
       </div>
@@ -1643,6 +1648,8 @@ Priya Sharma,1MS21CS002,priya.sharma@bmsit.in
               Create Event
             </button>
           </form>
+        </div>
+          </div>
         </div>
       </div>
     );
@@ -1795,5 +1802,6 @@ Priya Sharma,1MS21CS002,priya.sharma@bmsit.in
       </div>
     </div>
   );
+}
 
 export default React.memo(AdminDashboard);
