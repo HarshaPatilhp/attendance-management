@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import { useNavigate, Routes, Route } from 'react-router-dom';
 import { AdminNav } from './AdminNav';
+import { LogOut } from 'lucide-react';
 // Lazy load views
 const DashboardView = lazy(() => import('./views/DashboardView'));
 const CreateEventView = lazy(() => import('./views/CreateEventView'));
@@ -92,8 +93,15 @@ const NavItem = ({ icon: Icon, label, active, onClick }) => (
 function AdminDashboard() {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    // Check if user is already logged in from localStorage
+    return localStorage.getItem('isAuthenticated') === 'true';
+  });
+  const [currentUser, setCurrentUser] = useState(() => {
+    // Get user data from localStorage if exists
+    const user = localStorage.getItem('currentUser');
+    return user ? JSON.parse(user) : null;
+  });
   const [password, setPassword] = useState('');
   const [staffUsername, setStaffUsername] = useState('');
   const [loginMode, setLoginMode] = useState('admin');
@@ -115,6 +123,66 @@ function AdminDashboard() {
   const [copied, setCopied] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Handle login
+  const handleLogin = async (e, role = 'admin', username = '') => {
+    e.preventDefault();
+    setError('');
+    
+    try {
+      setLoading(true);
+      
+      if (role === 'admin') {
+        // Admin login
+        const savedPassword = await SettingsStorage.getAdminPassword();
+        if (password === savedPassword) {
+          const user = { username: 'Admin', role: 'admin' };
+          setCurrentUser(user);
+          setIsAuthenticated(true);
+          localStorage.setItem('isAuthenticated', 'true');
+          localStorage.setItem('currentUser', JSON.stringify(user));
+          setPassword('');
+          navigate('/admin/dashboard');
+        } else {
+          setError('Invalid admin password. Please try again.');
+        }
+      } else if (role === 'staff') {
+        // Staff login
+        const staffList = await StaffStorage.getStaffUsers();
+        const staff = staffList.find(
+          s => s.username.toLowerCase() === username.toLowerCase() && 
+               s.password === password
+        );
+        
+        if (staff) {
+          const user = { username: staff.username, role: 'staff' };
+          setCurrentUser(user);
+          setIsAuthenticated(true);
+          localStorage.setItem('isAuthenticated', 'true');
+          localStorage.setItem('currentUser', JSON.stringify(user));
+          setPassword('');
+          setStaffUsername('');
+          navigate('/admin/dashboard');
+        } else {
+          setError('Invalid username or password. Please try again.');
+        }
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      setError('An error occurred during login. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle logout
+  const handleLogout = useCallback(() => {
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+    localStorage.removeItem('isAuthenticated');
+    localStorage.removeItem('currentUser');
+    navigate('/admin/login');
+  }, [navigate]);
 
   // Toggle dark mode
   const toggleDarkMode = () => {
@@ -847,10 +915,12 @@ function AdminDashboard() {
             setIsAuthenticated(false);
             setCurrentUser(null);
             setPassword('');
+            navigate('/admin/login');
           }}
-          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-colors font-medium"
+          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-colors font-medium flex items-center gap-2"
         >
-          Logout
+          <LogOut className="w-4 h-4" />
+          <span>Sign Out</span>
         </button>
       </div>
     </div>
