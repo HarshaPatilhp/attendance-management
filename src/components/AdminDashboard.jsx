@@ -614,7 +614,7 @@ function AdminDashboard({ onLogout }) {
     a.click();
   };
 
-  // Auto-refresh attendance records - optimized polling
+  // Auto-refresh attendance records - optimized polling (fetch from storage adapter)
   useEffect(() => {
     if (activeEvent) {
       let pollInterval;
@@ -622,25 +622,18 @@ function AdminDashboard({ onLogout }) {
 
       const loadAttendanceRecords = async () => {
         try {
-          const attendanceKey = `attendance_${activeEvent.code}`;
-          const recordsData = localStorage.getItem(attendanceKey);
-
-          if (recordsData) {
-            const records = JSON.parse(recordsData);
-            // Only update state if records actually changed
-            setAttendanceRecords(prevRecords => {
-              if (prevRecords.length !== records.length) {
+          const records = await AttendanceStorage.getAttendance(activeEvent.code);
+          setAttendanceRecords(prevRecords => {
+            if (prevRecords.length !== records.length) {
+              return records;
+            }
+            for (let i = 0; i < records.length; i++) {
+              if (JSON.stringify(prevRecords[i]) !== JSON.stringify(records[i])) {
                 return records;
               }
-              // Check if any records are different
-              for (let i = 0; i < records.length; i++) {
-                if (JSON.stringify(prevRecords[i]) !== JSON.stringify(records[i])) {
-                  return records;
-                }
-              }
-              return prevRecords; // No change, don't trigger re-render
-            });
-          }
+            }
+            return prevRecords;
+          });
         } catch (error) {
           console.error('Error polling attendance:', error);
         }
@@ -904,7 +897,7 @@ function AdminDashboard({ onLogout }) {
                       </h3>
                       <div className="flex gap-2">
                         <button
-                          onClick={() => setViewMode('settings')}
+                          onClick={() => setShowManualAttendance(true)}
                           className="flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
                           title="Add attendance manually"
                         >
@@ -922,6 +915,45 @@ function AdminDashboard({ onLogout }) {
                         )}
                       </div>
                     </div>
+
+                    {showManualAttendance && (
+                      <form onSubmit={handleManualAttendance} className="mb-6 grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Name</label>
+                          <input
+                            type="text"
+                            value={manualAttendanceForm.name}
+                            onChange={(e) => setManualAttendanceForm({ ...manualAttendanceForm, name: e.target.value })}
+                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">USN</label>
+                          <input
+                            type="text"
+                            value={manualAttendanceForm.usn}
+                            onChange={(e) => setManualAttendanceForm({ ...manualAttendanceForm, usn: e.target.value })}
+                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent uppercase"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Email</label>
+                          <input
+                            type="email"
+                            value={manualAttendanceForm.email}
+                            onChange={(e) => setManualAttendanceForm({ ...manualAttendanceForm, email: e.target.value })}
+                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            required
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <button type="submit" className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Add</button>
+                          <button type="button" onClick={() => setShowManualAttendance(false)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">Cancel</button>
+                        </div>
+                      </form>
+                    )}
 
                     {attendanceRecords.length === 0 ? (
                       <div className="text-center py-12 text-gray-500">
@@ -973,6 +1005,28 @@ function AdminDashboard({ onLogout }) {
                           </tbody>
                         </table>
                       </div>
+                    )}
+                  </div>
+                  {/* Past Events */}
+                  <div className="mt-10 border-t pt-6">
+                    <h3 className="text-xl font-bold text-gray-900 flex items-center">
+                      <History className="w-6 h-6 mr-2 text-indigo-600" />
+                      Past Events
+                    </h3>
+                    {pastEvents.length === 0 ? (
+                      <div className="text-gray-500 mt-4">No past events yet</div>
+                    ) : (
+                      <ul className="divide-y divide-gray-100 mt-4">
+                        {pastEvents.slice(0, 5).map((ev, idx) => (
+                          <li key={idx} className="py-3 flex items-center justify-between">
+                            <div>
+                              <div className="font-medium text-gray-900">{ev.name || 'Untitled Event'}</div>
+                              <div className="text-sm text-gray-500">{ev.date} • Code: {ev.code}</div>
+                            </div>
+                            <div className="text-sm text-gray-600">{ev.attendanceCount || 0} attendees</div>
+                          </li>
+                        ))}
+                      </ul>
                     )}
                   </div>
                 </>
