@@ -62,7 +62,19 @@ class ErrorBoundary extends Component {
 }
 
 function App() {
-  const [mode, setMode] = useState(null);
+  const [mode, setMode] = useState(() => {
+    // Load mode from localStorage if it exists
+    return localStorage.getItem('appMode') || null;
+  });
+
+  // Save mode to localStorage whenever it changes
+  useEffect(() => {
+    if (mode) {
+      localStorage.setItem('appMode', mode);
+    } else {
+      localStorage.removeItem('appMode');
+    }
+  }, [mode]);
 
   if (!mode) {
     return (
@@ -79,7 +91,10 @@ function App() {
 
           <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             <button
-              onClick={() => setMode('admin')}
+              onClick={() => {
+                setMode('admin');
+                window.history.pushState({}, '', '/admin');
+              }}
               className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 p-8 border-2 border-transparent hover:border-indigo-500"
             >
               <div className="flex flex-col items-center space-y-6">
@@ -94,7 +109,10 @@ function App() {
             </button>
 
             <button
-              onClick={() => setMode('student')}
+              onClick={() => {
+                setMode('student');
+                window.history.pushState({}, '', '/student');
+              }}
               className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 p-8 border-2 border-transparent hover:border-blue-500"
             >
               <div className="flex flex-col items-center space-y-6">

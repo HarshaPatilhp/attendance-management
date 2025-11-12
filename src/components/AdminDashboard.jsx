@@ -451,16 +451,41 @@ function AdminDashboard() {
   };
 
   const getCurrentLocation = useCallback(async () => {
+    if (!navigator.geolocation) {
+      setError('Geolocation is not supported by your browser');
+      return null;
+    }
+
     setLoadingLocation(true);
     setError('');
     
     try {
       const position = await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0
-        });
+        navigator.geolocation.getCurrentPosition(
+          resolve, 
+          (error) => {
+            let errorMessage = 'Could not get your location. ';
+            switch(error.code) {
+              case error.PERMISSION_DENIED:
+                errorMessage += 'Please enable location permissions in your browser settings.';
+                break;
+              case error.POSITION_UNAVAILABLE:
+                errorMessage += 'Location information is unavailable.';
+                break;
+              case error.TIMEOUT:
+                errorMessage += 'The request to get your location timed out. Please try again.';
+                break;
+              default:
+                errorMessage += 'An unknown error occurred.';
+            }
+            reject(new Error(errorMessage));
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+          }
+        );
       });
       
       const currentLocation = {
@@ -473,7 +498,7 @@ function AdminDashboard() {
       return currentLocation;
     } catch (error) {
       console.error('Error getting location:', error);
-      setError('Could not get your location. Please try again or enter coordinates manually.');
+      setError(error.message || 'Could not get your location. Please try again or enter coordinates manually.');
       return null;
     } finally {
       setLoadingLocation(false);
