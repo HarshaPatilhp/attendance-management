@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import { useNavigate, Routes, Route } from 'react-router-dom';
 import { AdminNav } from './AdminNav';
-import { LogOut, Shield, Users, Settings, Sun, Moon, Calendar, History, Eye, Download, Trash2, Clock, UserPlus, MapPin, CheckCircle, Copy, XCircle } from 'lucide-react';
+import { LogOut, Shield, Users, Settings, Sun, Moon, Calendar, History, Eye, Download, Trash2, Clock, UserPlus, MapPin, CheckCircle, Copy, XCircle, Edit } from 'lucide-react';
 // Lazy load views
 const DashboardView = lazy(() => import('./views/DashboardView'));
 const CreateEventView = lazy(() => import('./views/CreateEventView'));
@@ -1615,10 +1615,10 @@ Priya Sharma,1MS21CS002,priya.sharma@bmsit.in
                 <MapPin className="w-5 h-5 text-blue-600 mt-0.5 mr-3" />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-900 mb-2">Event Location</p>
-                  {location ? (
+                  {eventLocation ? (
                     <div className="text-sm text-gray-600 space-y-1">
-                      <p>Latitude: {location.latitude.toFixed(6)}</p>
-                      <p>Longitude: {location.longitude.toFixed(6)}</p>
+                      <p>Latitude: {eventLocation.lat.toFixed(6)}</p>
+                      <p>Longitude: {eventLocation.lng.toFixed(6)}</p>
                     </div>
                   ) : (
                     <p className="text-sm text-gray-600">Location not set</p>
@@ -1696,7 +1696,7 @@ Priya Sharma,1MS21CS002,priya.sharma@bmsit.in
                     <div>
                       <p className="text-sm text-gray-500">Location</p>
                       <p className="font-semibold text-xs">
-                        {activeEvent.location.latitude.toFixed(4)}, {activeEvent.location.longitude.toFixed(4)}
+                        {activeEvent.location.lat.toFixed(4)}, {activeEvent.location.lng.toFixed(4)}
                       </p>
                     </div>
                   </div>

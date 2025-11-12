@@ -140,21 +140,28 @@ function App() {
       <div className="min-h-screen bg-gray-50">
         <Suspense fallback={<Loader />}>
           <Routes>
-            <Route path="/" element={<Navigate to="/student" replace />} />
+            <Route 
+              path="/" 
+              element={<Navigate to={mode === 'admin' ? '/admin' : '/student'} replace />} 
+            />
             <Route 
               path="/admin/*" 
               element={
-                <React.Suspense fallback={<Loader />}>
-                  <AdminDashboard />
-                </React.Suspense>
+                <ErrorBoundary>
+                  <React.Suspense fallback={<Loader />}>
+                    <AdminDashboard />
+                  </React.Suspense>
+                </ErrorBoundary>
               } 
             />
             <Route 
               path="/student" 
               element={
-                <React.Suspense fallback={<Loader />}>
-                  <StudentAttendance />
-                </React.Suspense>
+                <ErrorBoundary>
+                  <React.Suspense fallback={<Loader />}>
+                    <StudentAttendance />
+                  </React.Suspense>
+                </ErrorBoundary>
               } 
             />
           </Routes>
