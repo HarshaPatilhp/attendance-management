@@ -702,61 +702,6 @@ function AdminDashboard({ onLogout }) {
         stopPolling();
         document.removeEventListener('visibilitychange', handleVisibilityChange);
       };
-    }
-  }, [activeEvent]);
-
-  if (!isAuthenticated) {
-    return (
-      <div className={`min-h-screen ${darkMode ? 'bg-slate-950' : 'bg-gradient-to-br from-indigo-50 via-white to-purple-50'} flex items-center justify-center p-4 transition-colors duration-300`}>
-        <div className="w-full max-w-md">
-          <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-8 shadow-2xl">
-            <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-indigo-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <Suspense fallback={<div className="w-8 h-8 bg-indigo-400 rounded"></div>}>
-                  <Shield className="w-8 h-8 text-indigo-400" />
-                </Suspense>
-              </div>
-              <h1 className="text-2xl font-bold text-white mb-2">Admin Panel</h1>
-              <p className="text-slate-400">Sign in to manage attendance</p>
-            </div>
-
-            <div className="flex bg-slate-800/50 rounded-xl p-1 mb-6">
-              <button
-                onClick={() => setLoginMode('admin')}
-                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
-                  loginMode === 'admin'
-                    ? 'bg-indigo-600 text-white shadow-lg'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Admin
-              </button>
-              <button
-                onClick={() => setLoginMode('staff')}
-                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
-                  loginMode === 'staff'
-                    ? 'bg-indigo-600 text-white shadow-lg'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Staff
-              </button>
-            </div>
-
-            <form onSubmit={(e) => handleLogin(e, loginMode, staffUsername)} className="space-y-4">
-              {loginMode === 'staff' && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Username</label>
-                  <input
-                    type="text"
-                    value={staffUsername}
-                    onChange={(e) => setStaffUsername(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-800/50 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                    placeholder="Enter your username"
-                    required
-                  />
-                </div>
-              )}
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -803,58 +748,56 @@ function AdminDashboard({ onLogout }) {
           </div>
         </div>
       </div>
-    );
-  }
 
-  // Modern User Info Bar Component - memoized
-  const UserInfoBar = React.memo(() => (
-    <div className="flex items-center justify-between mb-6 p-6 bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl">
-      <div className="flex items-center gap-4">
-        <div className={`p-3 rounded-2xl ${isAdmin() ? 'bg-indigo-500/20' : 'bg-blue-500/20'}`}>
-          <Suspense fallback={<div className="w-6 h-6 bg-slate-600 rounded"></div>}>
-            {isAdmin() ? (
-              <Shield className="w-6 h-6 text-indigo-400" />
-            ) : (
-              <Users className="w-6 h-6 text-blue-400" />
-            )}
-          </Suspense>
-        </div>
-        <div>
-          <p className="text-lg font-bold text-white">{currentUser?.username}</p>
-          <p className="text-sm text-slate-400">
-            {isAdmin() ? 'Administrator' : 'Staff Member'}
-          </p>
-        </div>
+// Modern User Info Bar Component - memoized
+const UserInfoBar = React.memo(() => (
+  <div className={`${darkMode ? 'bg-gradient-to-r from-slate-900/90 via-purple-900/90 to-slate-900/90' : 'bg-slate-900/80'} backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl`}>
+    <div className="flex items-center gap-4 p-6">
+      <div className={`p-3 rounded-2xl ${isAdmin() ? 'bg-indigo-500/20' : 'bg-blue-500/20'}`}>
+        <Suspense fallback={<div className="w-6 h-6 bg-slate-600 rounded"></div>}>
+          {isAdmin() ? (
+            <Shield className="w-6 h-6 text-indigo-400" />
+          ) : (
+            <Users className="w-6 h-6 text-blue-400" />
+          )}
+        </Suspense>
       </div>
-      <div className="flex items-center gap-3">
-        <button
-          onClick={toggleDarkMode}
-          className="p-2 rounded-xl bg-slate-800/50 hover:bg-slate-700/50 text-slate-400 hover:text-white transition-colors"
-        >
-          <Suspense fallback={<div className="w-5 h-5"></div>}>
-            {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-          </Suspense>
-        </button>
-        <button
-          onClick={() => {
-            setIsAuthenticated(false);
-            setCurrentUser(null);
-            setPassword('');
-            onLogout && onLogout();
-          }}
-          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-colors font-medium flex items-center gap-2"
-        >
-          <LogOut className="w-4 h-4" />
-          <span>Sign Out</span>
-        </button>
+      <div>
+        <p className="text-lg font-bold text-white">{currentUser?.username}</p>
+        <p className="text-sm text-slate-400">
+          {isAdmin() ? 'Administrator' : 'Staff Member'}
+        </p>
       </div>
     </div>
-  ));
+    <div className="flex items-center gap-3 px-6 pb-6">
+      <button
+        onClick={toggleDarkMode}
+        className="p-2 rounded-xl bg-slate-800/50 hover:bg-slate-700/50 text-slate-400 hover:text-white transition-colors"
+      >
+        <Suspense fallback={<div className="w-5 h-5"></div>}>
+          {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+        </Suspense>
+      </button>
+      <button
+        onClick={() => {
+          setIsAuthenticated(false);
+          setCurrentUser(null);
+          setPassword('');
+          onLogout && onLogout();
+        }}
+        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-colors font-medium flex items-center gap-2"
+      >
+        <LogOut className="w-4 h-4" />
+        <span>Sign Out</span>
+      </button>
+    </div>
+  </div>
+));
 
   // Modern Navigation Sidebar Component - memoized
   const NavigationBar = React.memo(() => (
-    <div className="w-80 bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-6 mr-6 h-fit shadow-2xl">
-      <div className="space-y-3">
+    <div className={`${darkMode ? 'bg-gradient-to-r from-slate-900/90 via-purple-900/90 to-slate-900/90' : 'bg-slate-900/80'} backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl w-80 mr-6 h-fit`}>
+      <div className="space-y-3 p-6">
         <button
           onClick={() => setViewMode('create')}
           className={`w-full flex items-center px-4 py-4 rounded-xl font-semibold transition-all ${
