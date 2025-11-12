@@ -85,7 +85,7 @@ const NavItem = ({ icon: Icon, label, active, onClick }) => (
   </button>
 );
 
-function AdminDashboard() {
+function AdminDashboard({ onLogout }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -109,53 +109,8 @@ function AdminDashboard() {
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [staffUsers, setStaffUsers] = useState([]);
   const [newStaffForm, setNewStaffForm] = useState({ username: '', password: '' });
-  
-  // Handle user login
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setError('');
-    
-    try {
-      let user = null;
-      
-      if (loginMode === 'admin') {
-        // Admin login
-        const adminPassword = await SettingsStorage.getAdminPassword();
-        if (password !== adminPassword) {
-          throw new Error('Invalid admin password');
-        }
-        user = { username: 'admin', role: 'admin' };
-      } else {
-        // Staff login
-        const staff = staffUsers.find(u => u.username === staffUsername);
-        if (!staff || staff.password !== password) {
-          throw new Error('Invalid staff credentials');
-        }
-        user = { username: staffUsername, role: 'staff' };
-      }
-      
-      // Set authentication state
-      const session = { isAuthenticated: true, user };
-      localStorage.setItem('adminSession', JSON.stringify(session));
-      setIsAuthenticated(true);
-      setCurrentUser(user);
-      setViewMode('dashboard');
-      
-    } catch (error) {
-      console.error('Login error:', error);
-      setError(error.message || 'Login failed. Please try again.');
-    }
-  };
-  
-  // Handle user logout
-  const handleLogout = () => {
-    localStorage.removeItem('adminSession');
-    setIsAuthenticated(false);
-    setCurrentUser(null);
-    setPassword('');
-    setStaffUsername('');
-    setViewMode('login');
-  };
+  const [adminPassword, setAdminPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   const [showAddStaff, setShowAddStaff] = useState(false);
   const [eventForm, setEventForm] = useState({ name: '', date: '', time: '', duration: 60 });
   const [eventLocation, setEventLocation] = useState(null);
@@ -179,9 +134,6 @@ function AdminDashboard() {
     }
     localStorage.setItem('darkMode', JSON.stringify(darkMode));
   }, [darkMode]);
-  const [loading, setLoading] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [adminPassword, setAdminPassword] = useState('');
 
   // Handle login
   const handleLogin = async (e) => {
@@ -236,7 +188,8 @@ function AdminDashboard() {
     setPassword('');
     setStaffUsername('');
     setViewMode('login');
-  }, []);
+    onLogout && onLogout();
+  }, [onLogout]);
 
   // Toggle dark mode
   const toggleDarkMode = () => {
@@ -638,11 +591,6 @@ function AdminDashboard() {
       setError('Failed to end event. Please try again.');
     }
   };
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `attendance_${event.name}_${event.date}.csv`;
-    a.click();
-  };
 
   const copyEventCode = () => {
     navigator.clipboard.writeText(activeEvent.code);
@@ -892,7 +840,7 @@ function AdminDashboard() {
             setIsAuthenticated(false);
             setCurrentUser(null);
             setPassword('');
-            navigate('/admin/login');
+            onLogout && onLogout();
           }}
           className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-colors font-medium flex items-center gap-2"
         >
@@ -1751,7 +1699,7 @@ Priya Sharma,1MS21CS002,priya.sharma@bmsit.in
                     <div>
                       <p className="text-sm text-gray-500">Location</p>
                       <p className="font-semibold text-xs">
-                        {activeEvent.location.lat.toFixed(4)}, {activeEvent.location.lng.toFixed(4)}
+                        {activeEvent.location?.lat ? activeEvent.location.lat.toFixed(4) : 'N/A'}, {activeEvent.location?.lng ? activeEvent.location.lng.toFixed(4) : 'N/A'}
                       </p>
                     </div>
                   </div>

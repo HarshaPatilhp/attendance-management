@@ -41,12 +41,22 @@ function StudentAttendance() {
   const [alreadyMarked, setAlreadyMarked] = useState(false);
 
   // Check if student has already marked attendance for this event
-  const checkExistingAttendance = useCallback(async (eventCode, usn) => {
+  const checkExistingAttendance = useCallback(async (usn, eventCode) => {
+    if (!usn || !eventCode || !isGoogleSheetsEnabled()) {
+      setAlreadyMarked(false);
+      return false;
+    }
+
     try {
-      const attendance = await AttendanceAPI.getAttendance(eventCode);
-      return attendance.some(record => record.usn.toLowerCase() === usn.toLowerCase());
+      const existingRecords = await AttendanceAPI.getAttendance(eventCode.toUpperCase());
+      const hasMarked = existingRecords.some(
+        (record) => record.usn.toUpperCase() === usn.toUpperCase()
+      );
+      setAlreadyMarked(hasMarked);
+      return hasMarked;
     } catch (error) {
       console.error('Error checking existing attendance:', error);
+      setAlreadyMarked(false);
       return false;
     }
   }, []);
@@ -84,9 +94,8 @@ function StudentAttendance() {
 
       // Check if already marked attendance
       setMessage('Checking existing attendance...');
-      const hasMarkedAttendance = await checkExistingAttendance(event.code, formData.usn);
+      const hasMarkedAttendance = await checkExistingAttendance(formData.usn, event.code);
       if (hasMarkedAttendance) {
-        setAlreadyMarked(true);
         throw new Error('You have already marked attendance for this event');
       }
 
@@ -168,23 +177,6 @@ function StudentAttendance() {
     });
   };
 
-  const checkExistingAttendance = useCallback(async (usn, eventCode) => {
-    if (!usn || !eventCode || !isGoogleSheetsEnabled()) {
-      setAlreadyMarked(false);
-      return;
-    }
-
-    try {
-      const existingRecords = await AttendanceAPI.getAttendance(eventCode.toUpperCase());
-      const hasMarked = existingRecords.some(
-        (record) => record.usn.toUpperCase() === usn.toUpperCase()
-      );
-      setAlreadyMarked(hasMarked);
-    } catch (error) {
-      console.error('Error checking existing attendance:', error);
-      setAlreadyMarked(false);
-    }
-  }, []);
 
   // Debounced version of checkExistingAttendance
   const debouncedCheckAttendance = useMemo(() => {

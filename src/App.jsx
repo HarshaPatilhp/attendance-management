@@ -63,100 +63,15 @@ class ErrorBoundary extends Component {
 
 function App() {
   const [mode, setMode] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
 
-  // Handle login
-  const handleLogin = (user) => {
-    setCurrentUser(user);
-    setIsAuthenticated(true);
-  };
-
-  // Handle logout
+  // Handle logout from child components
   const handleLogout = () => {
     setMode(null);
-    setIsAuthenticated(false);
-    setCurrentUser(null);
     // Clear any stored credentials
     localStorage.removeItem('authToken');
     localStorage.removeItem('user');
+    localStorage.removeItem('adminSession');
   };
-
-  // Show mode selection if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-        <div className="container mx-auto px-4 py-16">
-          <div className="text-center mb-12">
-            <h1 className="text-5xl font-bold text-gray-900 mb-4">
-              AIML Attendance System
-            </h1>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Secure event attendance tracking
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            <button
-              onClick={() => setMode('admin')}
-              className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 p-8 border-2 border-transparent hover:border-indigo-500"
-            >
-              <div className="flex flex-col items-center space-y-6">
-                <div className="p-6 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full group-hover:scale-110 transition-transform duration-300">
-                  <Shield className="w-16 h-16 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Admin Portal</h2>
-                  <p className="text-gray-600">Create and manage events</p>
-                </div>
-              </div>
-            </button>
-
-            <button
-              onClick={() => setMode('student')}
-              className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 p-8 border-2 border-transparent hover:border-blue-500"
-            >
-              <div className="flex flex-col items-center space-y-6">
-                <div className="p-6 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-full group-hover:scale-110 transition-transform duration-300">
-                  <Users className="w-16 h-16 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">Student Portal</h2>
-                  <p className="text-gray-600">Mark your attendance</p>
-                </div>
-              </div>
-            </button>
-          </div>
-          <div className="mt-12 max-w-4xl mx-auto">
-            <h3 className="text-2xl font-semibold text-center mb-6">Key Features</h3>
-            <ul className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <li className="bg-white p-4 rounded-lg shadow-md">
-                <div className="flex items-center">
-                  <span className="text-green-500 mr-2">✓</span>
-                  <span className="font-medium">Time-Limited Codes</span>
-                </div>
-                <p className="text-sm text-gray-600 mt-2">Event codes expire automatically after the event ends</p>
-              </li>
-              <li className="bg-white p-4 rounded-lg shadow-md">
-                <div className="flex items-center">
-                  <span className="text-green-500 mr-2">✓</span>
-                  <span className="font-medium">Email Verification</span>
-                </div>
-                <p className="text-sm text-gray-600 mt-2">Only @bmsit.ac.in email addresses are accepted</p>
-              </li>
-              <li className="bg-white p-4 rounded-lg shadow-md">
-                <div className="flex items-center">
-                  <span className="text-green-500 mr-2">✓</span>
-                  <span className="font-medium">Duplicate Prevention</span>
-                </div>
-                <p className="text-sm text-gray-600 mt-2">Each student can mark attendance only once per event</p>
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <Router>
@@ -165,14 +80,89 @@ function App() {
           <Routes>
             <Route 
               path="/" 
-              element={<Navigate to={mode === 'admin' ? '/admin' : '/student'} replace />} 
+              element={
+                !mode ? (
+                  <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+                    <div className="container mx-auto px-4 py-16">
+                      <div className="text-center mb-12">
+                        <h1 className="text-5xl font-bold text-gray-900 mb-4">
+                          AIML Attendance System
+                        </h1>
+                        <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+                          Secure event attendance tracking
+                        </p>
+                      </div>
+
+                      <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                        <button
+                          onClick={() => setMode('admin')}
+                          className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 p-8 border-2 border-transparent hover:border-indigo-500"
+                        >
+                          <div className="flex flex-col items-center space-y-6">
+                            <div className="p-6 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full group-hover:scale-110 transition-transform duration-300">
+                              <Shield className="w-16 h-16 text-white" />
+                            </div>
+                            <div>
+                              <h2 className="text-2xl font-bold text-gray-900 mb-2">Admin Portal</h2>
+                              <p className="text-gray-600">Create and manage events</p>
+                            </div>
+                          </div>
+                        </button>
+
+                        <button
+                          onClick={() => setMode('student')}
+                          className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 p-8 border-2 border-transparent hover:border-blue-500"
+                        >
+                          <div className="flex flex-col items-center space-y-6">
+                            <div className="p-6 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-full group-hover:scale-110 transition-transform duration-300">
+                              <Users className="w-16 h-16 text-white" />
+                            </div>
+                            <div>
+                              <h2 className="text-2xl font-bold text-gray-900 mb-2">Student Portal</h2>
+                              <p className="text-gray-600">Mark your attendance</p>
+                            </div>
+                          </div>
+                        </button>
+                      </div>
+                      <div className="mt-12 max-w-4xl mx-auto">
+                        <h3 className="text-2xl font-semibold text-center mb-6">Key Features</h3>
+                        <ul className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          <li className="bg-white p-4 rounded-lg shadow-md">
+                            <div className="flex items-center">
+                              <span className="text-green-500 mr-2">✓</span>
+                              <span className="font-medium">Time-Limited Codes</span>
+                            </div>
+                            <p className="text-sm text-gray-600 mt-2">Event codes expire automatically after the event ends</p>
+                          </li>
+                          <li className="bg-white p-4 rounded-lg shadow-md">
+                            <div className="flex items-center">
+                              <span className="text-green-500 mr-2">✓</span>
+                              <span className="font-medium">Email Verification</span>
+                            </div>
+                            <p className="text-sm text-gray-600 mt-2">Only @bmsit.ac.in email addresses are accepted</p>
+                          </li>
+                          <li className="bg-white p-4 rounded-lg shadow-md">
+                            <div className="flex items-center">
+                              <span className="text-green-500 mr-2">✓</span>
+                              <span className="font-medium">Duplicate Prevention</span>
+                            </div>
+                            <p className="text-sm text-gray-600 mt-2">Each student can mark attendance only once per event</p>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <Navigate to={mode === 'admin' ? '/admin' : '/student'} replace />
+                )
+              } 
             />
             <Route 
               path="/admin/*" 
               element={
                 <ErrorBoundary>
                   <React.Suspense fallback={<Loader />}>
-                    <AdminDashboard />
+                    <AdminDashboard onLogout={handleLogout} />
                   </React.Suspense>
                 </ErrorBoundary>
               } 
