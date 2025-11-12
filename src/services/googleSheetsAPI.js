@@ -139,7 +139,16 @@ export const EventsAPI = {
    */
   async getActiveEvent() {
     const response = await apiGet('getActiveEvent');
-    return response.event;
+    const ev = response.event;
+    if (!ev) return null;
+    const loc = ev.location || {};
+    return {
+      ...ev,
+      location: {
+        lat: loc.lat ?? loc.latitude ?? 0,
+        lng: loc.lng ?? loc.longitude ?? 0,
+      }
+    };
   },
   
   /**
@@ -147,14 +156,32 @@ export const EventsAPI = {
    */
   async getPastEvents() {
     const response = await apiGet('getPastEvents');
-    return response.events || [];
+    const events = response.events || [];
+    return events.map(ev => {
+      const loc = ev.location || {};
+      return {
+        ...ev,
+        location: {
+          lat: loc.lat ?? loc.latitude ?? 0,
+          lng: loc.lng ?? loc.longitude ?? 0,
+        }
+      };
+    });
   },
   
   /**
    * Create new event
    */
   async createEvent(event) {
-    await apiPost('createEvent', { event });
+    // Normalize location to match Apps Script expectations
+    const normalizedEvent = {
+      ...event,
+      location: {
+        latitude: event?.location?.latitude ?? event?.location?.lat ?? 0,
+        longitude: event?.location?.longitude ?? event?.location?.lng ?? 0,
+      }
+    };
+    await apiPost('createEvent', { event: normalizedEvent });
     
     // Wait longer for Google Sheets to update and retry verification
     await new Promise(resolve => setTimeout(resolve, 2000));

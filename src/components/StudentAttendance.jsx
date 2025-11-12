@@ -10,7 +10,8 @@ const CheckCircle = lazy(() => import('lucide-react').then(module => ({ default:
 const AlertCircle = lazy(() => import('lucide-react').then(module => ({ default: module.AlertCircle })));
 import { CONFIG } from '../config';
 import { validateEmail } from '../utils';
-import { EventsAPI, AttendanceAPI, isGoogleSheetsEnabled } from '../services/googleSheetsAPI';
+import { isGoogleSheetsEnabled } from '../services/googleSheetsAPI';
+import { EventsStorage, AttendanceStorage } from '../services/storageAdapter';
 import { getCurrentLocation, validateLocation, checkForProxy } from '../utils/geolocation';
 
 // Memoized form input component
@@ -42,15 +43,15 @@ function StudentAttendance() {
 
   // Check if student has already marked attendance for this event
   const checkExistingAttendance = useCallback(async (usn, eventCode) => {
-    if (!usn || !eventCode || !isGoogleSheetsEnabled()) {
+    if (!usn || !eventCode) {
       setAlreadyMarked(false);
       return false;
     }
 
     try {
-      const existingRecords = await AttendanceAPI.getAttendance(eventCode.toUpperCase());
+      const existingRecords = await AttendanceStorage.getAttendance(eventCode.toUpperCase());
       const hasMarked = existingRecords.some(
-        (record) => record.usn.toUpperCase() === usn.toUpperCase()
+        (record) => record.usn?.toUpperCase() === usn.toUpperCase()
       );
       setAlreadyMarked(hasMarked);
       return hasMarked;
@@ -85,10 +86,10 @@ function StudentAttendance() {
         throw new Error('Proxy/VPN detected. Please disable it to mark attendance.');
       }
 
-      // Get event details
+      // Get and validate active event
       setMessage('Verifying event...');
-      const event = await EventsAPI.getEventByCode(formData.eventCode);
-      if (!event) {
+      const event = await EventsStorage.getActiveEvent();
+      if (!event || event.code?.toUpperCase() !== formData.eventCode.toUpperCase()) {
         throw new Error('Invalid event code');
       }
 
@@ -104,7 +105,11 @@ function StudentAttendance() {
       const currentLocation = await getCurrentLocation();
       
       // Validate location
-      const locationValidation = validateLocation(currentLocation, event.location, 100);
+      // Normalize event location shape to { lat, lng }
+      const eventLocation = event.location?.lat !== undefined
+        ? { lat: event.location.lat, lng: event.location.lng }
+        : { lat: event.location?.latitude, lng: event.location?.longitude };
+      const locationValidation = validateLocation(currentLocation, eventLocation, CONFIG.MAX_DISTANCE_METERS || 100);
       if (!locationValidation.isValid) {
         throw new Error(locationValidation.message);
       }
@@ -113,12 +118,12 @@ function StudentAttendance() {
       setMessage('Submitting attendance...');
       const timestamp = new Date().toISOString();
       
-      await AttendanceAPI.addAttendance(event.code, {
+      await AttendanceStorage.addAttendance(event.code, {
         name: formData.name,
         usn: formData.usn.toUpperCase(),
         email: formData.email,
         timestamp,
-        status: 'Present',
+        status: 'verified',
         location: currentLocation,
         deviceInfo: navigator.userAgent
       });
@@ -428,7 +433,7 @@ function StudentAttendance() {
                 >
                   {loading ? (
                     <>
-                      <Loader className="w-5 h-5 mr-2 animate-spin" />
+                      <LoaderIcon className="w-5 h-5 mr-2 animate-spin" />
                       Verifying...
                     </>
                   ) : (

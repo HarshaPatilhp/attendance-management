@@ -7,6 +7,8 @@ const Users = lazy(() => import('lucide-react').then(module => ({ default: modul
 const Eye = lazy(() => import('lucide-react').then(module => ({ default: module.Eye })));
 const Download = lazy(() => import('lucide-react').then(module => ({ default: module.Download })));
 const Search = lazy(() => import('lucide-react').then(module => ({ default: module.Search })));
+const Plus = lazy(() => import('lucide-react').then(module => ({ default: module.Plus })));
+const MapPin = lazy(() => import('lucide-react').then(module => ({ default: module.MapPin })));
 
 // Mock data - replace with actual API calls
 const mockEvents = [

@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { EventsAPI, StaffAPI, AttendanceAPI } from '../../services/googleSheetsAPI';
+import { EventsStorage, StaffStorage, AttendanceStorage } from '../../services/storageAdapter';
 
 // Lazy load icons
 const Calendar = lazy(() => import('lucide-react').then(module => ({ default: module.Calendar })));
@@ -101,19 +101,22 @@ const DashboardView = () => {
       try {
         setLoading(true);
         
-        // Fetch all data in parallel
-        const [events, staff, attendance] = await Promise.all([
-          EventsAPI.getAllEvents(),
-          StaffAPI.getStaffUsers(),
-          AttendanceAPI.getAttendance()
+        // Fetch data
+        const [activeEvent, pastEvents, staff] = await Promise.all([
+          EventsStorage.getActiveEvent(),
+          EventsStorage.getPastEvents(),
+          StaffStorage.getStaffUsers()
         ]);
 
+        // Gather attendance only for active event (if any)
+        const attendance = activeEvent ? await AttendanceStorage.getAttendance(activeEvent.code) : [];
+
         // Calculate stats
-        const totalEvents = events?.length || 0;
+        const totalEvents = (pastEvents?.length || 0) + (activeEvent ? 1 : 0);
         const activeStaff = staff?.length || 0;
         const totalStudents = [...new Set(attendance?.map(a => a.usn))]?.length || 0;
         const attendanceRate = attendance?.length > 0 
-          ? Math.round((attendance.filter(a => a.status === 'present').length / attendance.length) * 100) 
+          ? Math.round((attendance.filter(a => (a.status || '').toLowerCase() === 'verified').length / attendance.length) * 100) 
           : 0;
 
         // Update stats
@@ -129,7 +132,11 @@ const DashboardView = () => {
         const nextWeek = new Date(today);
         nextWeek.setDate(today.getDate() + 7);
 
-        const upcoming = events
+        const combinedEvents = [
+          ...(activeEvent ? [activeEvent] : []),
+          ...(pastEvents || [])
+        ];
+        const upcoming = combinedEvents
           .filter(event => {
             const eventDate = new Date(event.date);
             return eventDate >= today && eventDate <= nextWeek;
@@ -147,8 +154,8 @@ const DashboardView = () => {
             user: record.name,
             action: 'marked attendance',
             time: formatTimeAgo(record.timestamp),
-            event: record.eventName || 'Event',
-            status: record.status === 'present' ? 'success' : 'warning'
+            event: activeEvent?.name || 'Event',
+            status: (record.status || '').toLowerCase() === 'verified' ? 'success' : 'warning'
           }));
 
         setRecentActivities(recent);
