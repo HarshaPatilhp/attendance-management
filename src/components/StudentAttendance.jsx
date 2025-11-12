@@ -282,10 +282,10 @@ function StudentAttendance() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-4">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col md:flex-row gap-8">
+      <div className="max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content Area */}
-          <div className="flex-1">
+          <div className="lg:col-span-2">
             <div className="bg-white rounded-xl shadow-md p-8">
               <div className="text-center mb-8">
                 <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4 mx-auto">
@@ -459,7 +459,7 @@ function StudentAttendance() {
           </div>
           
           {/* Important Notes Sidebar - Desktop */}
-          <div className="hidden md:block w-80 flex-shrink-0">
+          <div className="hidden lg:block lg:col-span-1 w-full">
             <div className="bg-white p-6 rounded-xl shadow-md sticky top-4">
               <h3 className="text-lg font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">Important Notes</h3>
               <ul className="space-y-3">
