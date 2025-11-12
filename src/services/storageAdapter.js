@@ -21,15 +21,23 @@ export const SettingsStorage = {
    * Get admin password
    */
   async getAdminPassword() {
+    // First check localStorage (primary source)
+    const localPassword = localStorage.getItem('adminPassword');
+    if (localPassword) {
+      return localPassword;
+    }
+    
+    // If not in localStorage, try Google Sheets
     if (isGoogleSheetsEnabled()) {
       try {
         return await SettingsAPI.getAdminPassword();
       } catch (error) {
-        console.error('Failed to get password from Sheets, using localStorage:', error);
-        return localStorage.getItem('adminPassword') || 'aiml2024admin';
+        console.error('Failed to get password from Sheets, using default:', error);
       }
     }
-    return localStorage.getItem('adminPassword') || 'aiml2024admin';
+    
+    // Final fallback to default
+    return 'aiml2024admin';
   },
   
   /**
@@ -156,8 +164,8 @@ export const EventsStorage = {
         await EventsAPI.createEvent(event);
         console.log('Event saved to Google Sheets successfully');
       } catch (error) {
-        console.error('Failed to save event to Sheets:', error);
-        throw new Error(`Google Sheets error: ${error.message}`);
+        console.error('Failed to save event to Sheets, using localStorage fallback:', error);
+        // Don't throw error, just log and continue with localStorage
       }
     }
     localStorage.setItem('activeEvent', JSON.stringify(event));

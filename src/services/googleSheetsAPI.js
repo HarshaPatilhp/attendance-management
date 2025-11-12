@@ -155,20 +155,39 @@ export const EventsAPI = {
    */
   async createEvent(event) {
     await apiPost('createEvent', { event });
-    await new Promise(resolve => setTimeout(resolve, 1000));
     
-    // Verify the event was created by checking if it exists
-    try {
-      const activeEvent = await this.getActiveEvent();
-      if (!activeEvent || activeEvent.code !== event.code) {
-        throw new Error('Event creation failed - event not found in Google Sheets');
+    // Wait longer for Google Sheets to update and retry verification
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Retry verification up to 3 times with increasing delays
+    let verificationAttempts = 0;
+    const maxAttempts = 3;
+    
+    while (verificationAttempts < maxAttempts) {
+      try {
+        const activeEvent = await this.getActiveEvent();
+        if (activeEvent && activeEvent.code === event.code) {
+          return event; // Success
+        }
+        
+        // Wait longer between retries
+        const waitTime = 2000 * (verificationAttempts + 1);
+        console.log(`Event verification attempt ${verificationAttempts + 1} failed, retrying in ${waitTime}ms...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        
+      } catch (verifyError) {
+        console.error(`Event verification attempt ${verificationAttempts + 1} failed:`, verifyError);
+        if (verificationAttempts === maxAttempts - 1) {
+          // On last attempt, throw the error
+          throw new Error(`Event creation verification failed after ${maxAttempts} attempts: ${verifyError.message}`);
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
-    } catch (verifyError) {
-      console.error('Event creation verification failed:', verifyError);
-      throw new Error(`Event creation verification failed: ${verifyError.message}`);
+      
+      verificationAttempts++;
     }
     
-    return event;
+    throw new Error('Event creation verification failed - event not found in Google Sheets after all attempts');
   },
   
   /**
@@ -268,7 +287,8 @@ let _isSheetsEnabled = null;
  */
 export function isGoogleSheetsEnabled() {
   if (_isSheetsEnabled === null) {
-    _isSheetsEnabled = CONFIG.GOOGLE_SCRIPT_URL && 
+    _isSheetsEnabled = CONFIG.GOOGLE_SHEETS_ENABLED && 
+                     CONFIG.GOOGLE_SCRIPT_URL && 
                      CONFIG.GOOGLE_SCRIPT_URL !== '' && 
                      CONFIG.GOOGLE_SCRIPT_URL !== 'YOUR_GOOGLE_APPS_SCRIPT_URL';
   }
