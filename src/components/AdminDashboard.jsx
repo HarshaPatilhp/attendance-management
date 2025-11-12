@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
-import { useNavigate, Routes, Route } from 'react-router-dom';
+import { useNavigate, Routes, Route, useLocation } from 'react-router-dom';
 import { AdminNav } from './AdminNav';
 import { LogOut, Shield, Users, Settings, Sun, Moon, Calendar, History, Eye, Download, Trash2, Clock, UserPlus, MapPin, CheckCircle, Copy, XCircle, Edit } from 'lucide-react';
 // Lazy load views
@@ -87,16 +87,18 @@ const NavItem = ({ icon: Icon, label, active, onClick }) => (
 
 function AdminDashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    // Check if user is already logged in from localStorage
-    return localStorage.getItem('isAuthenticated') === 'true';
+    // Check if we have a valid session on initial load
+    const session = JSON.parse(localStorage.getItem('adminSession') || 'null');
+    return session?.isAuthenticated || false;
   });
   const [currentUser, setCurrentUser] = useState(() => {
-    // Get user data from localStorage if exists
-    const user = localStorage.getItem('currentUser');
-    return user ? JSON.parse(user) : null;
+    const session = JSON.parse(localStorage.getItem('adminSession') || 'null');
+    return session?.user || null;
   });
+  const [isLoading, setIsLoading] = useState(true);
   const [password, setPassword] = useState('');
   const [staffUsername, setStaffUsername] = useState('');
   const [loginMode, setLoginMode] = useState('admin');
@@ -107,6 +109,53 @@ function AdminDashboard() {
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [staffUsers, setStaffUsers] = useState([]);
   const [newStaffForm, setNewStaffForm] = useState({ username: '', password: '' });
+  
+  // Handle user login
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError('');
+    
+    try {
+      let user = null;
+      
+      if (loginMode === 'admin') {
+        // Admin login
+        const adminPassword = await SettingsStorage.getAdminPassword();
+        if (password !== adminPassword) {
+          throw new Error('Invalid admin password');
+        }
+        user = { username: 'admin', role: 'admin' };
+      } else {
+        // Staff login
+        const staff = staffUsers.find(u => u.username === staffUsername);
+        if (!staff || staff.password !== password) {
+          throw new Error('Invalid staff credentials');
+        }
+        user = { username: staffUsername, role: 'staff' };
+      }
+      
+      // Set authentication state
+      const session = { isAuthenticated: true, user };
+      localStorage.setItem('adminSession', JSON.stringify(session));
+      setIsAuthenticated(true);
+      setCurrentUser(user);
+      setViewMode('dashboard');
+      
+    } catch (error) {
+      console.error('Login error:', error);
+      setError(error.message || 'Login failed. Please try again.');
+    }
+  };
+  
+  // Handle user logout
+  const handleLogout = () => {
+    localStorage.removeItem('adminSession');
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+    setPassword('');
+    setStaffUsername('');
+    setViewMode('login');
+  };
   const [showAddStaff, setShowAddStaff] = useState(false);
   const [eventForm, setEventForm] = useState({ name: '', date: '', time: '', duration: 60 });
   const [eventLocation, setEventLocation] = useState(null);
@@ -115,57 +164,65 @@ function AdminDashboard() {
   const [showManualAttendance, setShowManualAttendance] = useState(false);
   const [selectedPastEvent, setSelectedPastEvent] = useState(null);
   const [copied, setCopied] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
+  // Initialize dark mode from localStorage or system preference
+  const [darkMode, setDarkMode] = useState(() => {
+    const savedMode = localStorage.getItem('darkMode');
+    return savedMode ? JSON.parse(savedMode) : window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
+
+  // Apply dark mode class to document
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('darkMode', JSON.stringify(darkMode));
+  }, [darkMode]);
   const [loading, setLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
 
   // Handle login
-  const handleLogin = async (e, role = 'admin', username = '') => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
     
     try {
       setLoading(true);
+      let user = null;
       
-      if (role === 'admin') {
+      if (loginMode === 'admin') {
         // Admin login
         const savedPassword = await SettingsStorage.getAdminPassword();
-        if (password === savedPassword) {
-          const user = { username: 'Admin', role: 'admin' };
-          setCurrentUser(user);
-          setIsAuthenticated(true);
-          localStorage.setItem('isAuthenticated', 'true');
-          localStorage.setItem('currentUser', JSON.stringify(user));
-          setPassword('');
-          navigate('/admin/dashboard');
-        } else {
-          setError('Invalid admin password. Please try again.');
+        if (password !== savedPassword) {
+          throw new Error('Invalid admin password');
         }
-      } else if (role === 'staff') {
+        user = { username: 'admin', role: 'admin' };
+      } else {
         // Staff login
         const staffList = await StaffStorage.getStaffUsers();
         const staff = staffList.find(
-          s => s.username.toLowerCase() === username.toLowerCase() && 
+          s => s.username.toLowerCase() === staffUsername.toLowerCase() && 
                s.password === password
         );
         
-        if (staff) {
-          const user = { username: staff.username, role: 'staff' };
-          setCurrentUser(user);
-          setIsAuthenticated(true);
-          localStorage.setItem('isAuthenticated', 'true');
-          localStorage.setItem('currentUser', JSON.stringify(user));
-          setPassword('');
-          setStaffUsername('');
-          navigate('/admin/dashboard');
-        } else {
-          setError('Invalid username or password. Please try again.');
+        if (!staff) {
+          throw new Error('Invalid staff credentials');
         }
+        user = { username: staffUsername, role: 'staff' };
       }
+      
+      // Set authentication state
+      const session = { isAuthenticated: true, user };
+      localStorage.setItem('adminSession', JSON.stringify(session));
+      setIsAuthenticated(true);
+      setCurrentUser(user);
+      setViewMode('dashboard');
+      
     } catch (error) {
       console.error('Login error:', error);
-      setError('An error occurred during login. Please try again.');
+      setError(error.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -173,12 +230,13 @@ function AdminDashboard() {
 
   // Handle logout
   const handleLogout = useCallback(() => {
+    localStorage.removeItem('adminSession');
     setIsAuthenticated(false);
     setCurrentUser(null);
-    localStorage.removeItem('isAuthenticated');
-    localStorage.removeItem('currentUser');
-    navigate('/admin/login');
-  }, [navigate]);
+    setPassword('');
+    setStaffUsername('');
+    setViewMode('login');
+  }, []);
 
   // Toggle dark mode
   const toggleDarkMode = () => {
@@ -548,67 +606,38 @@ function AdminDashboard() {
   };
 
   const endEvent = async () => {
-    if (activeEvent) {
-      try {
-        // End the event using storage adapter
-        await EventsStorage.endEvent(activeEvent);
-
-        // Update local state
-        const completedEvent = {
-          ...activeEvent,
-          endedAt: new Date().toISOString(),
-          attendanceCount: attendanceRecords.length,
-          attendanceRecords: attendanceRecords,
-        };
-
-        const updatedPastEvents = [completedEvent, ...pastEvents];
-        setPastEvents(updatedPastEvents);
-
-        // Clear active event in storage
-        await EventsStorage.clearActiveEvent();
-
-      } catch (error) {
-        console.error('Failed to end event:', error);
-        setError('Failed to end event. Please try again.');
-        return;
-      }
-    }
-
-    setActiveEvent(null);
-    setEventForm({ name: '', date: '', time: '', duration: 60 });
-    setEventLocation(null);
-    setAttendanceRecords([]);
-    setViewMode('create');
-    setError('');
-  };
-
-  const viewPastEvent = (event) => {
-    setSelectedPastEvent(event);
-    setViewMode('view-past');
-  };
-
-  const deletePastEvent = async (eventCode) => {
+    if (!activeEvent) return;
+    
     try {
-      await EventsStorage.deleteEvent(eventCode);
-      const updatedEvents = pastEvents.filter(e => e.code !== eventCode);
-      setPastEvents(updatedEvents);
+      // End the event using storage adapter
+      await EventsStorage.endEvent(activeEvent);
+
+      // Update local state
+      const completedEvent = {
+        ...activeEvent,
+        endedAt: new Date().toISOString(),
+        attendanceCount: attendanceRecords.length,
+        attendanceRecords: [...attendanceRecords],
+      };
+
+      setPastEvents(prevEvents => [completedEvent, ...prevEvents]);
+      
+      // Clear active event in storage
+      await EventsStorage.clearActiveEvent();
+      
+      // Reset form and state
+      setActiveEvent(null);
+      setEventForm({ name: '', date: '', time: '', duration: 60 });
+      setEventLocation(null);
+      setAttendanceRecords([]);
+      setViewMode('create');
       setError('');
+      
     } catch (error) {
-      console.error('Failed to delete event:', error);
-      setError('Failed to delete event. Please try again.');
+      console.error('Failed to end event:', error);
+      setError('Failed to end event. Please try again.');
     }
   };
-
-  const downloadPastEventAttendance = (event) => {
-    const csv = [
-      ['Name', 'USN', 'Email', 'Time', 'Status'].join(','),
-      ...event.attendanceRecords.map(record => 
-        [record.name, record.usn, record.email, record.timestamp, record.status].join(',')
-      )
-    ].join('\n');
-
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `attendance_${event.name}_${event.date}.csv`;

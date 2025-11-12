@@ -9,8 +9,9 @@ const LoaderIcon = lazy(() => import('lucide-react').then(module => ({ default: 
 const CheckCircle = lazy(() => import('lucide-react').then(module => ({ default: module.CheckCircle })));
 const AlertCircle = lazy(() => import('lucide-react').then(module => ({ default: module.AlertCircle })));
 import { CONFIG } from '../config';
-import { calculateDistance, validateEmail } from '../utils';
+import { validateEmail } from '../utils';
 import { EventsAPI, AttendanceAPI, isGoogleSheetsEnabled } from '../services/googleSheetsAPI';
+import { getCurrentLocation, validateLocation, checkForProxy } from '../utils/geolocation';
 
 // Memoized form input component
 const FormInput = React.memo(({ icon: Icon, ...props }) => (
@@ -39,24 +40,90 @@ function StudentAttendance() {
   const [location, setLocation] = useState(null);
   const [alreadyMarked, setAlreadyMarked] = useState(false);
 
+  // Check if student has already marked attendance for this event
+  const checkExistingAttendance = useCallback(async (eventCode, usn) => {
+    try {
+      const attendance = await AttendanceAPI.getAttendance(eventCode);
+      return attendance.some(record => record.usn.toLowerCase() === usn.toLowerCase());
+    } catch (error) {
+      console.error('Error checking existing attendance:', error);
+      return false;
+    }
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setStatus(null);
     setMessage('');
+    setAlreadyMarked(false);
 
     try {
+      // Basic validation
+      if (!formData.name || !formData.usn || !formData.email || !formData.eventCode) {
+        throw new Error('All fields are required');
+      }
+
       if (!validateEmail(formData.email, CONFIG.COLLEGE_EMAIL_DOMAIN)) {
         throw new Error(`Please use your college email (${CONFIG.COLLEGE_EMAIL_DOMAIN})`);
       }
 
-      const position = await getCurrentPosition();
-      setLocation({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
+      // Check for proxy/VPN
+      setMessage('Checking for proxy/VPN...');
+      const proxyCheck = await checkForProxy();
+      if (proxyCheck.isUsingProxy) {
+        throw new Error('Proxy/VPN detected. Please disable it to mark attendance.');
+      }
+
+      // Get event details
+      setMessage('Verifying event...');
+      const event = await EventsAPI.getEventByCode(formData.eventCode);
+      if (!event) {
+        throw new Error('Invalid event code');
+      }
+
+      // Check if already marked attendance
+      setMessage('Checking existing attendance...');
+      const hasMarkedAttendance = await checkExistingAttendance(event.code, formData.usn);
+      if (hasMarkedAttendance) {
+        setAlreadyMarked(true);
+        throw new Error('You have already marked attendance for this event');
+      }
+
+      // Get current location
+      setMessage('Verifying your location...');
+      const currentLocation = await getCurrentLocation();
+      
+      // Validate location
+      const locationValidation = validateLocation(currentLocation, event.location, 100);
+      if (!locationValidation.isValid) {
+        throw new Error(locationValidation.message);
+      }
+
+      // Submit attendance
+      setMessage('Submitting attendance...');
+      const timestamp = new Date().toISOString();
+      
+      await AttendanceAPI.addAttendance(event.code, {
+        name: formData.name,
+        usn: formData.usn.toUpperCase(),
+        email: formData.email,
+        timestamp,
+        status: 'Present',
+        location: currentLocation,
+        deviceInfo: navigator.userAgent
       });
 
-      await simulateAttendanceSubmission(position);
+      // Update UI
+      setStatus('success');
+      setMessage('Attendance marked successfully!');
+      setFormData(initialFormState);
+      
+      // Reset status after 5 seconds
+      setTimeout(() => {
+        setStatus(null);
+        setMessage('');
+      }, 5000);
 
     } catch (error) {
       setStatus('error');

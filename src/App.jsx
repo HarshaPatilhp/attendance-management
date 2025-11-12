@@ -62,21 +62,28 @@ class ErrorBoundary extends Component {
 }
 
 function App() {
-  const [mode, setMode] = useState(() => {
-    // Load mode from localStorage if it exists
-    return localStorage.getItem('appMode') || null;
-  });
+  const [mode, setMode] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
 
-  // Save mode to localStorage whenever it changes
-  useEffect(() => {
-    if (mode) {
-      localStorage.setItem('appMode', mode);
-    } else {
-      localStorage.removeItem('appMode');
-    }
-  }, [mode]);
+  // Handle login
+  const handleLogin = (user) => {
+    setCurrentUser(user);
+    setIsAuthenticated(true);
+  };
 
-  if (!mode) {
+  // Handle logout
+  const handleLogout = () => {
+    setMode(null);
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+    // Clear any stored credentials
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+  };
+
+  // Show mode selection if not authenticated
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
         <div className="container mx-auto px-4 py-16">
@@ -91,10 +98,7 @@ function App() {
 
           <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
             <button
-              onClick={() => {
-                setMode('admin');
-                window.history.pushState({}, '', '/admin');
-              }}
+              onClick={() => setMode('admin')}
               className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 p-8 border-2 border-transparent hover:border-indigo-500"
             >
               <div className="flex flex-col items-center space-y-6">
@@ -109,10 +113,7 @@ function App() {
             </button>
 
             <button
-              onClick={() => {
-                setMode('student');
-                window.history.pushState({}, '', '/student');
-              }}
+              onClick={() => setMode('student')}
               className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 p-8 border-2 border-transparent hover:border-blue-500"
             >
               <div className="flex flex-col items-center space-y-6">
@@ -126,25 +127,29 @@ function App() {
               </div>
             </button>
           </div>
-
-          <div className="mt-16 max-w-3xl mx-auto bg-white rounded-xl shadow-lg p-8">
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Security Features</h3>
-            <ul className="space-y-3 text-gray-700">
-              <li className="flex items-start">
-                <span className="text-green-500 mr-3 mt-1">✓</span>
-                <span><strong>Location Verification:</strong> Ensures students are physically present at the event</span>
+          <div className="mt-12 max-w-4xl mx-auto">
+            <h3 className="text-2xl font-semibold text-center mb-6">Key Features</h3>
+            <ul className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <li className="bg-white p-4 rounded-lg shadow-md">
+                <div className="flex items-center">
+                  <span className="text-green-500 mr-2">✓</span>
+                  <span className="font-medium">Time-Limited Codes</span>
+                </div>
+                <p className="text-sm text-gray-600 mt-2">Event codes expire automatically after the event ends</p>
               </li>
-              <li className="flex items-start">
-                <span className="text-green-500 mr-3 mt-1">✓</span>
-                <span><strong>Time-Limited Codes:</strong> Event codes expire automatically</span>
+              <li className="bg-white p-4 rounded-lg shadow-md">
+                <div className="flex items-center">
+                  <span className="text-green-500 mr-2">✓</span>
+                  <span className="font-medium">Email Verification</span>
+                </div>
+                <p className="text-sm text-gray-600 mt-2">Only @bmsit.ac.in email addresses are accepted</p>
               </li>
-              <li className="flex items-start">
-                <span className="text-green-500 mr-3 mt-1">✓</span>
-                <span><strong>Email Verification:</strong> Only college email addresses accepted</span>
-              </li>
-              <li className="flex items-start">
-                <span className="text-green-500 mr-3 mt-1">✓</span>
-                <span><strong>Duplicate Prevention:</strong> Each student can mark attendance only once</span>
+              <li className="bg-white p-4 rounded-lg shadow-md">
+                <div className="flex items-center">
+                  <span className="text-green-500 mr-2">✓</span>
+                  <span className="font-medium">Duplicate Prevention</span>
+                </div>
+                <p className="text-sm text-gray-600 mt-2">Each student can mark attendance only once per event</p>
               </li>
             </ul>
           </div>
