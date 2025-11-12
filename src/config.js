@@ -6,5 +6,5 @@ export const CONFIG = {
   MAX_DISTANCE_METERS: 200, // Maximum allowed distance from event location
   COLLEGE_EMAIL_DOMAIN: '@bmsit.in', // Change to your college domain
   USE_SHARED_STORAGE: true, // Set to true when Google Sheets is configured
-  GOOGLE_SHEETS_ENABLED: false, // Set to false to temporarily disable Google Sheets
+  GOOGLE_SHEETS_ENABLED: true, // Set to false to temporarily disable Google Sheets
 };
